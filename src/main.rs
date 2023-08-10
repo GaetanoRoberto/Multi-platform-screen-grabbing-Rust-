@@ -14,7 +14,8 @@ struct GrabData {
     screenshot_number : u32,
     #[data(ignore)]
     image_data: Vec<u8>,
-    save_path: String,
+    #[data(ignore)]
+    save_path: Box<Path>,
     save_format : String
 }
 
@@ -59,7 +60,25 @@ fn build_ui() -> impl Widget<GrabData> {
     );
     let image = Image::new(image_buf);*/
 
-    Flex::column().with_child(create_monitor_buttons())
+    let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
+        if !_data.image_data.is_empty() {
+            fs::write(format!("Screen{}.{}",_data.screenshot_number,_data.save_format), _data.image_data.clone()).unwrap();
+        }
+        if _data.screenshot_number == u32::MAX {
+            _data.screenshot_number = 0;
+        } else {
+            _data.screenshot_number+=1;
+        }
+        // cancel all image data
+        _data.image_data = vec![];
+    });
+
+    let cancel_button = Button::new("Cancel").on_click(move |_ctx, _data: &mut GrabData ,_env| {
+        // cancel all image data
+        _data.image_data = vec![];
+    });
+
+    Flex::column().with_child(create_monitor_buttons()).with_child(Flex::row().with_child(save_button).with_child(cancel_button))
 }
 
 fn main() -> Result<(), PlatformError> {
