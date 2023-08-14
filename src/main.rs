@@ -44,7 +44,7 @@ fn create_monitor_buttons() -> Flex<GrabData> {
                 _ctx.window().close();
                 _ctx.new_window(
                     WindowDesc::new(
-                        Flex::<GrabData>::row().with_child(ScreenshotWidget::new(None)))
+                        Flex::<GrabData>::row().with_child(ScreenshotWidget))
                         .show_titlebar(false)
                         .transparent(true)
                         .set_position((rect.x0,rect.y0))
@@ -110,7 +110,7 @@ fn main() -> Result<(), PlatformError> {
         positions: vec![],
     };
 
-    AppLauncher::with_window(main_window).delegate(Delegate).launch(data)
+    AppLauncher::with_window(main_window).log_to_console().delegate(Delegate).launch(data)
 }
 
 struct Delegate;

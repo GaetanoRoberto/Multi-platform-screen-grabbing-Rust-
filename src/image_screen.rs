@@ -1,29 +1,14 @@
 use std::fs;
 use std::fs::create_dir_all;
-use druid::{BoxConstraints, commands, Cursor, Env, Event, EventCtx, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Screen, Size, UpdateCtx, Widget, WidgetExt, WindowDesc};
+use druid::{BoxConstraints, Color, commands, Cursor, Env, Event, EventCtx, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
+use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
-//use druid::piet::d2d::Image;
-use druid::widget::{Button, Flex, Image};
+use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox};
 use image::load_from_memory_with_format;
 use crate::GrabData;
 
-pub struct ScreenshotWidget {
-    image: Image,
-}
-
-impl ScreenshotWidget {
-    pub fn new(image: Option<Image>) -> Self {
-        match image {
-            Some(value) => {
-                ScreenshotWidget {image: value}
-            }
-            None => {
-                ScreenshotWidget{image : Image::new(ImageBuf::empty())}
-            }
-        }
-    }
-}
+pub struct ScreenshotWidget;
 
 impl Widget<GrabData> for ScreenshotWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut GrabData, _env: &Env) {
@@ -32,37 +17,9 @@ impl Widget<GrabData> for ScreenshotWidget {
         let mut max_x = 0;
         let mut max_y = 0;
 
-        /*if let Event::WindowCloseRequested = event {
-            if !data.image_data.is_empty() {
-                let dynamic_image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
-                    .expect("Failed to load image from memory");
-                let rgba_image = dynamic_image.to_rgba8();
-                let image_buf = ImageBuf::from_raw(
-                    rgba_image.clone().into_raw(),
-                    ImageFormat::RgbaSeparate,
-                    rgba_image.clone().width() as usize,
-                    rgba_image.clone().height() as usize,
-                );
-
-                let image = Image::new(image_buf);
-                let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
-                let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
-                //println!("{:?}",rect);
-                //println!("{:?}",screen);
-                ctx.window().close();
-                ctx.new_window(
-                    WindowDesc::new(
-                        Flex::<GrabData>::column()
-                            .with_child(ScreenshotWidget::new(Some(image))))
-                        .set_position((rect.x0,rect.y0))
-                        .window_size((300.0,300.0)));
-            }
-        }*/
-
         if let Event::MouseDown(_) = event {
             data.press = true;
             //ctx.set_cursor(&Cursor::Crosshair);
-            println!("prova");
         }
 
         if let Event::MouseMove(mouse_event) = event {
@@ -106,12 +63,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                 min_y = (min_y2 as f64 * scale_factor_y) as i32;
                 max_y = (max_y2 as f64 * scale_factor_y) as i32;
 
-                let mut diff_y = 0;
-                if min_y > max_y {
-                    diff_y = min_y - max_y;
-                } else {
-                    diff_y = max_y - min_y;
-                }
                 //println!("minx {} maxx {} miny {} maxy {}",min_x,max_x,min_y,max_y);
                 let image = screen.capture_area(min_x as i32, min_y as i32, (max_x - min_x) as u32, (max_y - min_y) as u32).unwrap();
                 let buffer = image.to_png(None).unwrap();
@@ -150,43 +101,19 @@ impl Widget<GrabData> for ScreenshotWidget {
                 //println!("{:?}",rect);
                 //println!("{:?}",screen);
                 ctx.window().close();
-                println!("create");
                 ctx.new_window(
                     WindowDesc::new(
-                        Flex::<GrabData>::column()
-                            .with_child(ScreenshotWidget::new(Some(image)))
-                            .with_child(
-                                Flex::row()
-                                    .with_child(save_button)
-                                    .with_child(cancel_button)
-                            ))
-                        .set_position((rect.x0,rect.y0)));
+                        Flex::column().with_child(
+                            ZStack::new(image)
+                                .with_centered_child(ScreenshotWidget)
+                        ).with_child(Flex::row().with_child(save_button).with_child(cancel_button))
+
+                    )
+                        .set_position((rect.x0,rect.y0))
+                        .window_size(Size::new(rect.width()/2 as f64,rect.height()/2 as f64)));
             }
             //fs::write(format!("Screen{}.{}",data.screenshot_number,data.save_format), data.image_data.clone()).unwrap();
         }
-        /*if let Event::Command(cmd) = event {
-            if cmd.is(commands::HIDE_WINDOW) {
-                // Capture the screenshot
-                println!("inside");
-                let image = screenshots::Screen::all().unwrap()[data.monitor_index].capture().unwrap();
-                let buffer = image.to_png(None).unwrap();
-                data.image_data = buffer;
-
-                // Show the window using the SHOW_WINDOW command
-                let dynamic_image = load_from_memory_with_format(&vec![], image::ImageFormat::Png)
-                    .expect("Failed to load image from memory");
-                let rgba_image = dynamic_image.to_rgba8();
-                let image_buf = ImageBuf::from_raw(
-                    rgba_image.clone().into_raw(),
-                    ImageFormat::RgbaSeparate,
-                    rgba_image.clone().width() as usize,
-                    rgba_image.clone().height() as usize,
-                );
-                //let image = Image::new(image_buf);
-                ctx.submit_command(commands::SHOW_WINDOW);
-                ctx.request_paint();
-            }
-        }*/
     }
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &GrabData, env: &Env) {
@@ -200,6 +127,5 @@ impl Widget<GrabData> for ScreenshotWidget {
     }
 
     fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: &GrabData, env: &druid::Env) {
-        self.image.paint(paint_ctx, data, env);
     }
 }
