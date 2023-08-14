@@ -1,12 +1,13 @@
 use std::fs;
 use std::fs::create_dir_all;
-use druid::{BoxConstraints, Color, commands, Cursor, Env, Event, EventCtx, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowDesc};
+use druid::{BoxConstraints, Color, commands, Cursor, Env, Event, EventCtx, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Rect, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
 use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox};
 use image::load_from_memory_with_format;
-use crate::GrabData;
+use crate::{build_ui, GrabData};
+use crate::image_crop::CroppedImage;
 
 pub struct ScreenshotWidget;
 
@@ -60,8 +61,16 @@ impl Widget<GrabData> for ScreenshotWidget {
                 let scale_factor_y = ctx.scale().y();
                 min_x = (min_x2 as f64 * scale_factor_x) as i32;
                 max_x = (max_x2 as f64 * scale_factor_x) as i32;
-                min_y = (min_y2 as f64 * scale_factor_y) as i32;
-                max_y = (max_y2 as f64 * scale_factor_y) as i32;
+
+                if !data.first_screen {
+                    min_y = ((min_y2 as f64 * scale_factor_y)+35.0) as i32;
+                    max_y = ((max_y2 as f64 * scale_factor_y)+35.0) as i32;
+                } else {
+                    min_y = (min_y2 as f64 * scale_factor_y) as i32;
+                    max_y = (max_y2 as f64 * scale_factor_y) as i32;
+                    data.first_screen = false;
+                }
+
 
                 //println!("minx {} maxx {} miny {} maxy {}",min_x,max_x,min_y,max_y);
                 let image = screen.capture_area(min_x as i32, min_y as i32, (max_x - min_x) as u32, (max_y - min_y) as u32).unwrap();
@@ -78,7 +87,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                     rgba_image.clone().height() as usize,
                 );
 
-                let image = Image::new(image_buf);
+                let image = Image::new(image_buf.clone());
+                let image_rect = Rect::new(min_x as f64,min_y as f64, max_x as f64, max_y as f64);
 
                 let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
                     if !_data.image_data.is_empty() {
@@ -91,11 +101,21 @@ impl Widget<GrabData> for ScreenshotWidget {
                     }
                     // cancel all image data
                     _data.image_data = vec![];
+
+                    _ctx.window().close();
+                    _ctx.new_window(WindowDesc::new(build_ui())
+                        .title("Screen grabbing Utility")
+                        .window_size((400.0, 300.0)));
                 });
 
                 let cancel_button = Button::new("Cancel").on_click(move |_ctx, _data: &mut GrabData ,_env| {
                     // cancel all image data
                     _data.image_data = vec![];
+
+                    _ctx.window().close();
+                    _ctx.new_window(WindowDesc::new(build_ui())
+                        .title("Screen grabbing Utility")
+                        .window_size((400.0, 300.0)));
                 });
                 let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
                 //println!("{:?}",rect);
@@ -104,10 +124,17 @@ impl Widget<GrabData> for ScreenshotWidget {
                 ctx.new_window(
                     WindowDesc::new(
                         Flex::column().with_child(
-                            ZStack::new(image)
-                                .with_centered_child(ScreenshotWidget)
+                            Flex::column()
+                                .with_child(
+                                    ZStack::new(image)
+                                        .with_centered_child(ScreenshotWidget)
+                                ).fix_size(
+                                Size::new(rect.width()/4 as f64,rect.height()/4 as f64).width,
+                                Size::new(rect.width()/4 as f64,rect.height()/4 as f64).height)
                         ).with_child(Flex::row().with_child(save_button).with_child(cancel_button))
-
+                            .fix_size(
+                            Size::new(rect.width()/4 as f64,rect.height()/4 as f64).width,
+                            Size::new(rect.width()/4 as f64,rect.height()/4 as f64).height)
                     )
                         .set_position((rect.x0,rect.y0))
                         .window_size(Size::new(rect.width()/2 as f64,rect.height()/2 as f64)));

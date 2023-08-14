@@ -1,4 +1,5 @@
 mod image_screen;
+mod image_crop;
 
 use std::{fs, thread};
 use std::fs::File;
@@ -28,6 +29,7 @@ pub struct GrabData {
     save_path: Box<Path>,
     save_format : String,
     press: bool,
+    first_screen: bool,
     #[data(ignore)]
     positions: Vec<(f64,f64)>
 }
@@ -57,7 +59,7 @@ fn create_monitor_buttons() -> Flex<GrabData> {
     monitor_buttons
 }
 
-fn build_ui() -> impl Widget<GrabData> {
+pub fn build_ui() -> impl Widget<GrabData> {
     //let title = Label::new("Screen Grabbing Utility");
     /*let dynamic_image = open("C:\\Users\\Domenico\\CLionProjects\\pds_project\\Screen1.png").unwrap();
     // Create a DynamicImage from the image data buffer
@@ -107,6 +109,7 @@ fn main() -> Result<(), PlatformError> {
         save_path: Path::new("C:\\Users\\Domenico\\Desktop").to_path_buf().into_boxed_path(),
         save_format: "png".to_string(),
         press: false,
+        first_screen: true,
         positions: vec![],
     };
 
