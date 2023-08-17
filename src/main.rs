@@ -64,38 +64,6 @@ fn create_monitor_buttons() -> Flex<GrabData> {
 }
 
 fn build_ui() -> impl Widget<GrabData> {
-    //let title = Label::new("Screen Grabbing Utility");
-    /*let dynamic_image = open("C:\\Users\\Domenico\\CLionProjects\\pds_project\\Screen1.png").unwrap();
-    // Create a DynamicImage from the image data buffer
-    let dynamic_image = load_from_memory_with_format(&vec![], image::ImageFormat::Png)
-        .expect("Failed to load image from memory");
-    let rgba_image = dynamic_image.to_rgba8();
-    let image_buf = ImageBuf::from_raw(
-        rgba_image.clone().into_raw(),
-        ImageFormat::RgbaSeparate,
-        rgba_image.clone().width() as usize,
-        rgba_image.clone().height() as usize,
-    );
-    let image = Image::new(image_buf);
-    let image = ScreenshotWidget;*/
-    /*let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
-        if !_data.image_data.is_empty() {
-            fs::write(format!("Screen{}.{}",_data.screenshot_number,_data.save_format), _data.image_data.clone()).unwrap();
-        }
-        if _data.screenshot_number == u32::MAX {
-            _data.screenshot_number = 0;
-        } else {
-            _data.screenshot_number+=1;
-        }
-        // cancel all image data
-        _data.image_data = vec![];
-    });
-
-    let cancel_button = Button::new("Cancel").on_click(move |_ctx, _data: &mut GrabData ,_env| {
-        // cancel all image data
-        _data.image_data = vec![];
-    });*/
-
     Flex::column().with_child(create_monitor_buttons())
 }
 
