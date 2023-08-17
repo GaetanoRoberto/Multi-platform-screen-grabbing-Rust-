@@ -3,6 +3,7 @@ mod image_crop;
 mod constants;
 
 use std::{fs, thread};
+use std::arch::x86_64::_addcarry_u32;
 use std::fs::File;
 use std::io::Read;
 use std::ops::Deref;
@@ -32,6 +33,7 @@ pub struct GrabData {
     save_format : String,
     press: bool,
     first_screen: bool,
+    scale_factor: f64,
     #[data(ignore)]
     positions: Vec<(f64,f64)>
 }
@@ -112,6 +114,7 @@ fn main() -> Result<(), PlatformError> {
         save_format: "png".to_string(),
         press: false,
         first_screen: true,
+        scale_factor: 1.0,
         positions: vec![],
     };
 
@@ -130,9 +133,11 @@ impl AppDelegate<GrabData> for Delegate {
         _env: &druid::Env,
     ) -> druid::Handled {
         if cmd.is(commands::CLOSE_WINDOW) {
+            // TODO: set initial value for parameters who need it
             // Handle the window close event
             println!("Closing the window");
             // cancel all image data
+            _data.scale_factor = 1.0;
             _data.image_data = vec![];
             let file = File::create("settings.json").unwrap();
             to_writer(file, _data).unwrap();

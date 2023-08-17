@@ -7,9 +7,10 @@ use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
 use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat};
 use image::{DynamicImage, ImageBuffer, load_from_memory_with_format, Rgba};
+use image::imageops::FilterType;
 use crate::{build_ui, constants, GrabData};
 use crate::image_crop::CroppedImage;
-use constants::{BUTTON_HEIGHT,BUTTON_WIDTH};
+use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
 
 pub struct ScreenshotWidget;
 
@@ -36,11 +37,12 @@ impl Widget<GrabData> for ScreenshotWidget {
                     .expect("Failed to load image from memory");
                 // Calculate the offset to center mouse positions in the Image
                 let widget_size = ctx.size();
-                let x_offset = (widget_size.width - image.width() as f64) / 2.0;
-                let y_offset = (widget_size.height - image.height() as f64) / 2.0;
-                println!("{} {}",x_offset,y_offset);
+                let x_offset = (widget_size.width - (image.width() as f64 * data.scale_factor) as f64) / 2.0;
+                let y_offset = (widget_size.height - (image.height() as f64 * data.scale_factor) as f64) / 2.0;
                 // Adjust mouse coordinates
-                let centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
+                let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
+                centered_pos.x = centered_pos.x / data.scale_factor;
+                centered_pos.y = centered_pos.y / data.scale_factor;
                 data.positions.push(<(f64, f64)>::from(centered_pos));
             }
         }
@@ -51,15 +53,7 @@ impl Widget<GrabData> for ScreenshotWidget {
             if !data.positions.is_empty() {
                 let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
 
-                /*let (min_x2, min_y2) = data.positions.iter().cloned().min_by(|(x1, y1), (x2, y2)| {
-                    x1.partial_cmp(x2).unwrap()
-                }).unwrap();
-
-                let (max_x2, max_y2) = data.positions.iter().cloned().max_by(|(x1, y1), (x2, y2)| {
-                    x1.partial_cmp(x2).unwrap()
-                }).unwrap();*/
-
-                let (min_x2, max_y2) = data.positions.iter().cloned().fold(
+                /*let (min_x2, max_y2) = data.positions.iter().cloned().fold(
                     (f64::INFINITY, f64::NEG_INFINITY),
                     |(min_x, max_y), (x, y)| (min_x.min(x), max_y.max(y)),
                 );
@@ -67,7 +61,38 @@ impl Widget<GrabData> for ScreenshotWidget {
                 let (max_x2, min_y2) = data.positions.iter().cloned().fold(
                     (f64::NEG_INFINITY, f64::INFINITY),
                     |(max_x, min_y), (x, y)| (max_x.max(x), min_y.min(y)),
-                );
+                );*/
+
+                let (mut min_x2,mut max_y2) = (0.0,0.0);
+                let (mut max_x2,mut min_y2) = (0.0,0.0);
+                let (p1x,p1y) = data.positions[0];
+                let (p2x,p2y) = data.positions[data.positions.len() - 1];
+
+                if p1x < p2x && p1y < p2y {
+                    // p1 smaller than p2
+                    min_x2 = p1x;
+                    min_y2 = p1y;
+                    max_x2 = p2x;
+                    max_y2 = p2y;
+                } else if p1x > p2x && p1y > p2y {
+                    // p2 smaller than p1
+                    min_x2 = p2x;
+                    min_y2 = p2y;
+                    max_x2 = p1x;
+                    max_y2 = p1y;
+                } else if p1x < p2x && p1y > p2y {
+                    // partenza in basso a sx
+                    min_x2 = p1x;
+                    min_y2 = p2y;
+                    max_x2 = p2x;
+                    max_y2 = p1y;
+                } else if p1x > p2x && p1y < p2y {
+                    // partenza in alto a dx
+                    min_x2 = p2x;
+                    min_y2 = p1y;
+                    max_x2 = p1x;
+                    max_y2 = p2y;
+                }
 
                 // empty positions
                 data.positions = vec![];
@@ -118,11 +143,16 @@ impl Widget<GrabData> for ScreenshotWidget {
                         (max_x - min_x) as u32,
                         (max_y - min_y) as u32
                     );
+                    if cropped_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || cropped_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
+                        data.scale_factor = SCALE_FACTOR;
+                    } else {
+                        data.scale_factor = 1.0;
+                    }
+                    cropped_image.resize((cropped_image.width() as f64 * data.scale_factor) as u32, (cropped_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
                     window_width = cropped_image.width();
                     window_height = cropped_image.height();
 
-                    //println!("{} {}",cropped_image.width(),cropped_image.height());
                     let mut png_buffer = std::io::Cursor::new(Vec::new());
                     cropped_image.write_to(&mut png_buffer, image::ImageFormat::Png)
                         .expect("Failed to Save Cropped Image");
@@ -136,6 +166,19 @@ impl Widget<GrabData> for ScreenshotWidget {
                         rgba_image.clone().height() as usize,
                     );
                 } else {
+                    if dynamic_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || dynamic_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
+                        data.scale_factor = SCALE_FACTOR;
+                    } else {
+                        data.scale_factor = 1.0;
+                    }
+
+                    dynamic_image.resize((dynamic_image.width() as f64 * data.scale_factor) as u32, (dynamic_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
+
+                    let mut png_buffer = std::io::Cursor::new(Vec::new());
+                    dynamic_image.write_to(&mut png_buffer, image::ImageFormat::Png)
+                        .expect("Failed to Save Cropped Image");
+                    data.image_data = png_buffer.into_inner();
+
                     window_width = dynamic_image.width();
                     window_height = dynamic_image.height();
 
@@ -149,7 +192,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                     data.first_screen = false;
                 }
 
-                let image = Image::new(image_buf).fill_mode(FillStrat::None);
+                let image = Image::new(image_buf);//.fill_mode(FillStrat::None);
 
                 let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
                     if !_data.image_data.is_empty() {
@@ -191,8 +234,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 )
                         ).with_child(Flex::row().with_child(save_button).with_child(cancel_button)))
                         .set_position((rect.x0,rect.y0))
-                        .window_size(Size::new(window_width as f64,(window_height + 200) as f64))
-                        .resizable(true));
+                        .window_size(Size::new( window_width as f64 * data.scale_factor,(window_height as f64 * data.scale_factor + 200.0)))
+                        .resizable(false));
             }
             //fs::write(format!("Screen{}.{}",data.screenshot_number,data.save_format), data.image_data.clone()).unwrap();
         }
