@@ -1,5 +1,6 @@
 mod image_screen;
 mod image_crop;
+mod constants;
 
 use std::{fs, thread};
 use std::fs::File;
@@ -12,6 +13,7 @@ use std::time::Duration;
 use druid::{commands, ImageBuf, Application, Color, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
 use druid::piet::ImageFormat;
 use druid::platform_menus::mac::file::print;
+use druid::widget::List;
 use screenshots::{DisplayInfo, Screen};
 use serde::{Serialize,Deserialize};
 use serde_json::{to_writer,from_reader};
@@ -59,7 +61,7 @@ fn create_monitor_buttons() -> Flex<GrabData> {
     monitor_buttons
 }
 
-pub fn build_ui() -> impl Widget<GrabData> {
+fn build_ui() -> impl Widget<GrabData> {
     //let title = Label::new("Screen Grabbing Utility");
     /*let dynamic_image = open("C:\\Users\\Domenico\\CLionProjects\\pds_project\\Screen1.png").unwrap();
     // Create a DynamicImage from the image data buffer
@@ -113,7 +115,7 @@ fn main() -> Result<(), PlatformError> {
         positions: vec![],
     };
 
-    AppLauncher::with_window(main_window).log_to_console().delegate(Delegate).launch(data)
+    AppLauncher::with_window(main_window).delegate(Delegate).launch(data)
 }
 
 struct Delegate;
