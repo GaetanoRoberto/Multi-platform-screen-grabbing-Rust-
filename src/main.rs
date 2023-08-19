@@ -10,11 +10,12 @@ use std::path::{Path, PathBuf};
 use std::ptr::null;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
-use druid::Lens;
+use druid::{KeyEvent, Lens};
 use druid::{commands, ImageBuf, Application, Color, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
 use druid::piet::ImageFormat;
 use druid::platform_menus::mac::file::print;
-use druid::widget::List;
+use druid::platform_menus::win::file::print_preview;
+use druid::widget::{Controller, List, RadioGroup, TextBox};
 use druid_widget_nursery::{DropdownSelect};
 use grab_data_derived_lenses::save_format;
 use screenshots::{DisplayInfo, Screen};
@@ -22,6 +23,9 @@ use serde::{Serialize,Deserialize};
 use serde_json::{to_writer,from_reader};
 use image::{open, DynamicImage, ImageBuffer, Rgba, GenericImageView, load_from_memory_with_format};
 use serde::de::Unexpected::Str;
+use druid_widget_nursery::Dropdown;
+use druid_widget_nursery::dropdown::{DROPDOWN_CLOSED, DROPDOWN_SHOW};
+use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use crate::image_screen::ScreenshotWidget;
 
 
@@ -77,6 +81,9 @@ fn create_output_format_dropdown() -> Flex<GrabData> {
         DropdownSelect::new(vec![
             ("png", "png".to_string()),
             ("jpg", "jpg".to_string()),
+            ("jpeg", "jpeg".to_string()),
+            ("bmp", "bmp".to_string()),
+            ("tiff", "tiff".to_string()),
             ("gif", "gif".to_string())
         ])
         .lens(GrabData::save_format),
@@ -91,7 +98,7 @@ fn build_ui() -> impl Widget<GrabData> {
     ui_column.add_default_spacer();
     ui_column.add_flex_child(create_output_format_dropdown(), 1.0);
 
-    ui_column
+    ui_column.controller(Enter)
 }
 
 fn main() -> Result<(), PlatformError> {
@@ -140,5 +147,40 @@ impl AppDelegate<GrabData> for Delegate {
             return druid::Handled::No;
         }
         druid::Handled::No
+    }
+}
+
+struct Enter;
+
+impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
+    fn event(&mut self, child: &mut W, ctx: &mut EventCtx, event: &druid::Event, data: &mut GrabData, env: &Env) {
+        println!("event");
+        if let Event::KeyUp(key) = event {
+            println!("key pressed");
+            /*if key.code == Code::Enter {
+                if data.new_text.trim() != "" {
+                    let text = data.new_text.clone();
+                    data.new_text = "".to_string();
+                    data.todos.push_front(TodoItem { checked: false, text });
+                }
+
+            }*/
+        }
+        child.event(ctx, event, data, env)
+    }
+
+    fn lifecycle(
+        &mut self,
+        child: &mut W,
+        ctx: &mut druid::LifeCycleCtx,
+        event: &druid::LifeCycle,
+        data: &GrabData,
+        env: &Env,
+    ) {
+        child.lifecycle(ctx, event, data, env)
+    }
+
+    fn update(&mut self, child: &mut W, ctx: &mut druid::UpdateCtx, old_data: &GrabData, data: &GrabData, env: &Env) {
+        child.update(ctx, old_data, data, env)
     }
 }
