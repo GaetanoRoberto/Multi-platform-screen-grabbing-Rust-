@@ -12,7 +12,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use druid::{KeyEvent, Lens};
 use druid::{commands, ImageBuf, Application, Color, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
-use druid::piet::ImageFormat;
+use druid::piet::{ImageFormat, TextStorage};
 use druid::platform_menus::mac::file::print;
 use druid::platform_menus::win::file::print_preview;
 use druid::widget::{Controller, List, RadioGroup, TextBox};
@@ -71,6 +71,25 @@ fn create_monitor_buttons() -> Flex<GrabData> {
 }
 
 fn create_output_format_dropdown() -> Flex<GrabData> {
+    let file = File::open("settings.json").unwrap();
+    let data: GrabData = from_reader(file).unwrap();
+
+    let standard_formats = vec![
+        ("png".to_string(), "png".to_string()),
+        ("jpg".to_string(), "jpg".to_string()),
+        ("jpeg".to_string(), "jpeg".to_string()),
+        ("bmp".to_string(), "bmp".to_string()),
+        ("tiff".to_string(), "tiff".to_string()),
+        ("gif".to_string(), "gif".to_string())
+    ];
+
+    let mut build_formats = vec![(data.save_format.clone(),data.save_format.clone())];
+
+    for format in standard_formats {
+        if format.0 != data.save_format {
+            build_formats.push(format);
+        }
+    }
     let mut row_dropdown = Flex::row();
     row_dropdown.add_flex_child(
         Label::new("Select the output format :"),
@@ -78,14 +97,7 @@ fn create_output_format_dropdown() -> Flex<GrabData> {
     );
     row_dropdown.add_default_spacer();
     row_dropdown.add_flex_child(
-        DropdownSelect::new(vec![
-            ("png", "png".to_string()),
-            ("jpg", "jpg".to_string()),
-            ("jpeg", "jpeg".to_string()),
-            ("bmp", "bmp".to_string()),
-            ("tiff", "tiff".to_string()),
-            ("gif", "gif".to_string())
-        ])
+        DropdownSelect::new(build_formats)
         .lens(GrabData::save_format),
         1.0
     );
@@ -101,14 +113,17 @@ fn build_ui() -> impl Widget<GrabData> {
     ui_column.controller(Enter)
 }
 
+struct Delegate;
+
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(build_ui())
         .title("Screen grabbing Utility")
         .window_size((400.0, 300.0));
 
     let file = File::open("settings.json").unwrap();
-    //let data: GrabData = from_reader(file).unwrap();
-    let data = GrabData {
+    let data: GrabData = from_reader(file).unwrap();
+
+    /*let data = GrabData {
         screenshot_number: 1,
         monitor_index: 0,
         image_data: vec![],
@@ -118,12 +133,10 @@ fn main() -> Result<(), PlatformError> {
         first_screen: true,
         scale_factor: 1.0,
         positions: vec![],
-    };
+    };*/
 
     AppLauncher::with_window(main_window).delegate(Delegate).launch(data)
 }
-
-struct Delegate;
 
 impl AppDelegate<GrabData> for Delegate {
     fn command(
