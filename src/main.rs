@@ -1,5 +1,4 @@
 mod image_screen;
-mod image_crop;
 mod constants;
 
 use std::{fs, thread};
@@ -11,10 +10,13 @@ use std::path::{Path, PathBuf};
 use std::ptr::null;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
+use druid::Lens;
 use druid::{commands, ImageBuf, Application, Color, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
 use druid::piet::ImageFormat;
 use druid::platform_menus::mac::file::print;
 use druid::widget::List;
+use druid_widget_nursery::{DropdownSelect};
+use grab_data_derived_lenses::save_format;
 use screenshots::{DisplayInfo, Screen};
 use serde::{Serialize,Deserialize};
 use serde_json::{to_writer,from_reader};
@@ -22,15 +24,16 @@ use image::{open, DynamicImage, ImageBuffer, Rgba, GenericImageView, load_from_m
 use serde::de::Unexpected::Str;
 use crate::image_screen::ScreenshotWidget;
 
-#[derive(Clone, Data, Serialize, Deserialize, Debug)]
+
+#[derive(Clone, Data, Serialize, Deserialize, Debug, Lens)]
 pub struct GrabData {
-    screenshot_number : u32,
-    monitor_index : usize,
+    screenshot_number: u32,
+    monitor_index: usize,
     #[data(ignore)]
     image_data: Vec<u8>,
     #[data(ignore)]
     save_path: Box<Path>,
-    save_format : String,
+    save_format: String,
     press: bool,
     first_screen: bool,
     scale_factor: f64,
@@ -63,8 +66,32 @@ fn create_monitor_buttons() -> Flex<GrabData> {
     monitor_buttons
 }
 
+fn create_output_format_dropdown() -> Flex<GrabData> {
+    let mut row_dropdown = Flex::row();
+    row_dropdown.add_flex_child(
+        Label::new("Select the output format :"),
+        1.0
+    );
+    row_dropdown.add_default_spacer();
+    row_dropdown.add_flex_child(
+        DropdownSelect::new(vec![
+            ("png", "png".to_string()),
+            ("jpg", "jpg".to_string()),
+            ("gif", "gif".to_string())
+        ])
+        .lens(GrabData::save_format),
+        1.0
+    );
+    row_dropdown
+}
+
 fn build_ui() -> impl Widget<GrabData> {
-    Flex::column().with_child(create_monitor_buttons())
+    let mut ui_column = Flex::column();
+    ui_column.add_flex_child(create_monitor_buttons(), 1.0);
+    ui_column.add_default_spacer();
+    ui_column.add_flex_child(create_output_format_dropdown(), 1.0);
+
+    ui_column
 }
 
 fn main() -> Result<(), PlatformError> {
@@ -78,7 +105,7 @@ fn main() -> Result<(), PlatformError> {
         screenshot_number: 1,
         monitor_index: 0,
         image_data: vec![],
-        save_path: Path::new("C:\\Users\\Domenico\\Desktop").to_path_buf().into_boxed_path(),
+        save_path: Path::new("C:\\Users\\Alessandro\\Desktop").to_path_buf().into_boxed_path(),
         save_format: "png".to_string(),
         press: false,
         first_screen: true,

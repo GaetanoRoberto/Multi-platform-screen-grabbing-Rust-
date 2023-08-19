@@ -9,7 +9,6 @@ use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat}
 use image::{DynamicImage, ImageBuffer, load_from_memory_with_format, Rgba};
 use image::imageops::FilterType;
 use crate::{build_ui, constants, GrabData};
-use crate::image_crop::CroppedImage;
 use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
 
 pub struct ScreenshotWidget;
