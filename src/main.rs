@@ -10,8 +10,10 @@ use std::path::{Path, PathBuf};
 use std::ptr::null;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
-use druid::{KeyEvent, Lens};
+use druid::{HotKey, KeyEvent, Lens};
 use druid::{commands, ImageBuf, Application, Color, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
+use druid::keyboard_types::Key;
+use druid::kurbo::common::factor_quartic_inner;
 use druid::piet::{ImageFormat, TextStorage};
 use druid::platform_menus::mac::file::print;
 use druid::platform_menus::win::file::print_preview;
@@ -42,7 +44,9 @@ pub struct GrabData {
     first_screen: bool,
     scale_factor: f64,
     #[data(ignore)]
-    positions: Vec<(f64,f64)>
+    positions: Vec<(f64,f64)>,
+    hotkey: String,
+    set_hot_key: bool
 }
 
 fn create_monitor_buttons() -> Flex<GrabData> {
@@ -104,11 +108,50 @@ fn create_output_format_dropdown() -> Flex<GrabData> {
     row_dropdown
 }
 
+fn create_hotkey_ui() -> impl Widget<GrabData> {
+    let mut fusion = Flex::column();
+    let mut ui_column = Flex::row();
+    let mut ui2_column = Flex::row();
+
+    ui2_column.add_flex_child(Label::dynamic(|data: &GrabData, _| "Selected Hotkeys Monitor: ".to_owned() + &(data.monitor_index.clone() + 1).to_string()), 1.0);
+
+    ui_column.add_default_spacer();
+    ui_column.add_flex_child(Button::new("Set HotKeys").on_click(
+        move |_ctx, _data: &mut GrabData, _env| {
+            _data.set_hot_key = true;
+        }
+    ), 1.0);
+
+    ui_column.add_default_spacer();
+    ui_column.add_flex_child(Label::dynamic(|data: &GrabData, _| data.hotkey.clone()).border(Color::WHITE,1.0), 1.0);
+    let screens = Screen::all().unwrap();
+    let mut monitor_buttons = Flex::row();
+    let mut monitor_index = 1;
+    for screen in screens {
+        let btn = Button::new( "Monitor ".to_owned() + &monitor_index.to_string()).on_click(
+            move |_ctx, _data: &mut GrabData ,_env| {
+                _data.monitor_index = monitor_index - 1;
+            });
+        monitor_buttons = monitor_buttons.with_child(btn);
+        monitor_index+=1
+    }
+    ui_column.add_default_spacer();
+    ui_column.add_flex_child(monitor_buttons, 1.0);
+
+    fusion.add_flex_child(ui2_column,1.0);
+    fusion.add_default_spacer();
+    fusion.add_flex_child(ui_column,1.0);
+
+    fusion
+}
+
 fn build_ui() -> impl Widget<GrabData> {
     let mut ui_column = Flex::column();
-    ui_column.add_flex_child(create_monitor_buttons(), 1.0);
+    ui_column.add_flex_child(create_monitor_buttons(),1.0);
     ui_column.add_default_spacer();
-    ui_column.add_flex_child(create_output_format_dropdown(), 1.0);
+    ui_column.add_flex_child(create_output_format_dropdown(),1.0);
+    ui_column.add_default_spacer();
+    ui_column.add_flex_child(create_hotkey_ui(),1.0);
 
     ui_column.controller(Enter)
 }
@@ -123,7 +166,7 @@ fn main() -> Result<(), PlatformError> {
     let file = File::open("settings.json").unwrap();
     let data: GrabData = from_reader(file).unwrap();
 
-    /*let data = GrabData {
+    let data = GrabData {
         screenshot_number: 1,
         monitor_index: 0,
         image_data: vec![],
@@ -133,7 +176,9 @@ fn main() -> Result<(), PlatformError> {
         first_screen: true,
         scale_factor: 1.0,
         positions: vec![],
-    };*/
+        hotkey: String::from("Alt + 4"),
+        set_hot_key: false,
+    };
 
     AppLauncher::with_window(main_window).delegate(Delegate).launch(data)
 }
