@@ -45,7 +45,9 @@ pub struct GrabData {
     scale_factor: f64,
     #[data(ignore)]
     positions: Vec<(f64,f64)>,
-    hotkey: String,
+    #[data(ignore)]
+    hotkey: Vec<String>,
+    hotkey_sequence: usize,
     set_hot_key: bool
 }
 
@@ -116,14 +118,26 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
     ui2_column.add_flex_child(Label::dynamic(|data: &GrabData, _| "Selected Hotkeys Monitor: ".to_owned() + &(data.monitor_index.clone() + 1).to_string()), 1.0);
 
     ui_column.add_default_spacer();
-    ui_column.add_flex_child(Button::new("Set HotKeys").on_click(
+    ui_column.add_flex_child(Button::dynamic(|data: & GrabData, _env| {
+        if data.set_hot_key {
+            "Set Hotkeys".to_string()
+        } else {
+            "Edit Hotkeys".to_string()
+        }
+    }).on_click(
         move |_ctx, _data: &mut GrabData, _env| {
-            _data.set_hot_key = true;
+            _data.set_hot_key = !_data.set_hot_key;
+            if _data.set_hot_key == true {
+                // from false to true, i want to edit hotkeys, i start from scratch with empty vector combination
+                _data.hotkey.clear();
+            }
         }
     ), 1.0);
 
     ui_column.add_default_spacer();
-    ui_column.add_flex_child(Label::dynamic(|data: &GrabData, _| data.hotkey.clone()).border(Color::WHITE,1.0), 1.0);
+    ui_column.add_flex_child(Label::new(|data: &GrabData, _env: &_| {
+        data.hotkey.join(" + ")
+    }), 1.0);
     let screens = Screen::all().unwrap();
     let mut monitor_buttons = Flex::row();
     let mut monitor_index = 1;
@@ -154,6 +168,7 @@ fn build_ui() -> impl Widget<GrabData> {
     ui_column.add_flex_child(create_hotkey_ui(),1.0);
 
     ui_column.controller(Enter)
+    // Flex::column()
 }
 
 struct Delegate;
@@ -164,7 +179,7 @@ fn main() -> Result<(), PlatformError> {
         .window_size((400.0, 300.0));
 
     let file = File::open("settings.json").unwrap();
-    let data: GrabData = from_reader(file).unwrap();
+    //let data: GrabData = from_reader(file).unwrap();
 
     let data = GrabData {
         screenshot_number: 1,
@@ -176,7 +191,8 @@ fn main() -> Result<(), PlatformError> {
         first_screen: true,
         scale_factor: 1.0,
         positions: vec![],
-        hotkey: String::from("Alt + 4"),
+        hotkey: vec![],
+        hotkey_sequence: 0,
         set_hot_key: false,
     };
 
@@ -212,18 +228,45 @@ struct Enter;
 
 impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
     fn event(&mut self, child: &mut W, ctx: &mut EventCtx, event: &druid::Event, data: &mut GrabData, env: &Env) {
-        println!("event");
-        if let Event::KeyUp(key) = event {
-            println!("key pressed");
-            /*if key.code == Code::Enter {
-                if data.new_text.trim() != "" {
-                    let text = data.new_text.clone();
-                    data.new_text = "".to_string();
-                    data.todos.push_front(TodoItem { checked: false, text });
-                }
 
+        match event {
+            Event::WindowConnected => {
+                ctx.request_focus();
+            }
+            /*Event::KeyUp(key_event) => {
+                println!("Key up: {:?}", key_event.key);
             }*/
+            Event::KeyDown(key_event) => {
+                if data.set_hot_key {
+                    // capture and set the hotkey for screen grabbing
+                    data.hotkey.push(key_event.key.to_string());
+                    // println!("Key down: {:?}", key_event.key.to_string());
+                } else {
+                    // check current combination of the hotkey
+                    if data.hotkey[data.hotkey_sequence] == key_event.key.to_string() {
+                       data.hotkey_sequence+=1;
+                    } else {
+                       data.hotkey_sequence = 0;
+                    }
+                    // if the pressed keys corresponds to the hotkey combination, acquire the screen
+                    if data.hotkey_sequence == data.hotkey.len() {
+                        // acquire screen
+                        let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
+                        let image = screen.capture_area(0, 0, screen.display_info.width as u32, screen.display_info.height as u32).unwrap();
+                        fs::write(format!("Screen{}.{}",data.screenshot_number,data.save_format), image.to_png(None).unwrap()).unwrap();
+                        if data.screenshot_number == u32::MAX {
+                            data.screenshot_number = 0;
+                        } else {
+                            data.screenshot_number+=1;
+                        }
+
+                        data.hotkey_sequence = 0;
+                    }
+                }
+            }
+            _ => {} // Handle other cases if needed
         }
+
         child.event(ctx, event, data, env)
     }
 
