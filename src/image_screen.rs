@@ -6,11 +6,13 @@ use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color, comm
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
-use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat};
+use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat, Label};
 use image::{DynamicImage, EncodableLayout, ImageBuffer, load_from_memory_with_format, Rgba};
 use image::imageops::FilterType;
 use crate::{main_gui_building::build_ui, constants, GrabData};
 use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
+use crate::main_gui_building::create_save_cancel_buttons;
+
 pub struct ScreenshotWidget;
 
 impl Widget<GrabData> for ScreenshotWidget {
@@ -140,6 +142,23 @@ impl Widget<GrabData> for ScreenshotWidget {
                     // 200 ok (sotto ho messo + 200)
                     println!("{}",ctx.window().get_size().height - dynamic_image.height() as f64);
                     println!("{} {} {} {}",min_x,min_y,(max_x - min_x),(max_y - min_y));*/
+                    if min_x < 0 || min_y < 0 || (max_x - min_x) <=0 || (max_y - min_y) <=0 {
+                        let rgba_image = dynamic_image.to_rgba8();
+                        let buffer = ImageBuf::from_raw(
+                            rgba_image.clone().into_raw(),
+                            ImageFormat::RgbaSeparate,
+                            rgba_image.clone().width() as usize,
+                            rgba_image.clone().height() as usize,
+                        );
+                        let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+                        ctx.window().close();
+                        ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop Further, choose if save the image as it is or undo:"))
+                            .with_child(Image::new(buffer))
+                            .with_child(create_save_cancel_buttons())).set_position((rect.x0,rect.y0))
+                            .window_size(Size::new( 3.0 * dynamic_image.width() as f64 * data.scale_factor,(3.0 * dynamic_image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
+                            .resizable(false));
+                        return;
+                    }
                     cropped_image = dynamic_image.crop(
                         min_x as u32,
                         min_y as u32,
@@ -197,34 +216,6 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                 let image = Image::new(image_buf);//.fill_mode(FillStrat::None);
 
-                let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
-                    if !_data.image_data.is_empty() {
-                        fs::write(format!("Screen{}.{}",_data.screenshot_number,_data.save_format), _data.image_data.clone()).unwrap();
-                    }
-                    if _data.screenshot_number == u32::MAX {
-                        _data.screenshot_number = 0;
-                    } else {
-                        _data.screenshot_number+=1;
-                    }
-                    // cancel all image data
-                    _data.image_data = vec![];
-                    _data.first_screen = true;
-                    _ctx.window().close();
-                    _ctx.new_window(WindowDesc::new(build_ui())
-                        .title("Screen grabbing Utility")
-                        .window_size((400.0, 300.0)));
-                }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
-
-                let cancel_button = Button::new("Cancel").on_click(move |_ctx, _data: &mut GrabData ,_env| {
-                    // cancel all image data
-                    _data.image_data = vec![];
-                    _data.first_screen = true;
-                    _ctx.window().close();
-                    _ctx.new_window(WindowDesc::new(build_ui())
-                        .title("Screen grabbing Utility")
-                        .window_size((400.0, 300.0)));
-                }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
-
                 let image_data_clone = data.image_data.clone(); // Clone the data for use in the closure
 
                 let clipboard_button = Button::new("Copy to Clipboard").on_click(move |_ctx, _data: &mut GrabData ,_env| {
@@ -244,7 +235,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                     Application::global().clipboard().put_formats(&mut [ClipboardFormat::new("image/png", _data.image_data.clone())]);
                 }).fix_size(BUTTON_WIDTH * 2.0, BUTTON_HEIGHT);
 
-                let mut rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+                let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
 
                 // increase size of image for images too small
                 while (window_width as f64 * data.scale_factor) <= BUTTON_WIDTH * 2.0 + 10.0 {
@@ -261,7 +252,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     ZStack::new(image)
                                         .with_centered_child(ScreenshotWidget)
                                 )
-                        ).with_child(Flex::column().with_child(Flex::row().with_child(save_button).with_child(cancel_button)).with_child(clipboard_button)))
+                        ).with_child(Flex::column().with_child(create_save_cancel_buttons()).with_child(clipboard_button)))
                         .set_position((rect.x0,rect.y0))
                         .window_size(Size::new( window_width as f64 * data.scale_factor,(window_height as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
                         .resizable(false));

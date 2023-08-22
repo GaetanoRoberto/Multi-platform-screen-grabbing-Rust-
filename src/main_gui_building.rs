@@ -1,9 +1,11 @@
+use std::fs;
 use std::fs::File;
 use druid::widget::{Button, Flex, Label};
 use druid::{Size, Widget, WidgetExt, WindowDesc};
 use druid_widget_nursery::DropdownSelect;
 use screenshots::Screen;
 use serde_json::from_reader;
+use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH};
 use crate::GrabData;
 use crate::image_screen::ScreenshotWidget;
 use crate::handlers::Enter;
@@ -114,6 +116,38 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
     fusion.add_flex_child(ui_column,1.0);
 
     fusion
+}
+
+pub fn create_save_cancel_buttons() -> impl Widget<GrabData> {
+    let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
+        if !_data.image_data.is_empty() {
+            fs::write(format!("Screen{}.{}",_data.screenshot_number,_data.save_format), _data.image_data.clone()).unwrap();
+        }
+        if _data.screenshot_number == u32::MAX {
+            _data.screenshot_number = 0;
+        } else {
+            _data.screenshot_number+=1;
+        }
+        // cancel all image data
+        _data.image_data = vec![];
+        _data.first_screen = true;
+        _ctx.window().close();
+        _ctx.new_window(WindowDesc::new(build_ui())
+            .title("Screen grabbing Utility")
+            .window_size((400.0, 300.0)));
+    }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
+
+    let cancel_button = Button::new("Cancel").on_click(move |_ctx, _data: &mut GrabData ,_env| {
+        // cancel all image data
+        _data.image_data = vec![];
+        _data.first_screen = true;
+        _ctx.window().close();
+        _ctx.new_window(WindowDesc::new(build_ui())
+            .title("Screen grabbing Utility")
+            .window_size((400.0, 300.0)));
+    }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
+
+    Flex::row().with_child(save_button).with_child(cancel_button)
 }
 
 pub(crate) fn build_ui() -> impl Widget<GrabData> {
