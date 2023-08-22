@@ -1,16 +1,16 @@
+use std::borrow::Cow;
 use std::cmp::min;
 use std::fs;
 use std::fs::create_dir_all;
-use druid::{BoxConstraints, Color, commands, Cursor, Env, Event, EventCtx, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Rect, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowDesc};
+use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Point, Rect, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
 use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat};
-use image::{DynamicImage, ImageBuffer, load_from_memory_with_format, Rgba};
+use image::{DynamicImage, EncodableLayout, ImageBuffer, load_from_memory_with_format, Rgba};
 use image::imageops::FilterType;
-use crate::{build_ui, constants, GrabData};
+use crate::{main_gui_building::build_ui, constants, GrabData};
 use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
-
 pub struct ScreenshotWidget;
 
 impl Widget<GrabData> for ScreenshotWidget {
@@ -20,8 +20,10 @@ impl Widget<GrabData> for ScreenshotWidget {
         let mut max_x = 0;
         let mut max_y = 0;
 
-        if let Event::MouseDown(_) = event {
-            data.press = true;
+        if let Event::MouseDown(mouse_event) = event {
+            if mouse_event.button.is_left() {
+                data.press = true;
+            }
             //ctx.set_cursor(&Cursor::Crosshair);
         }
 
@@ -36,8 +38,10 @@ impl Widget<GrabData> for ScreenshotWidget {
                     .expect("Failed to load image from memory");
                 // Calculate the offset to center mouse positions in the Image
                 let widget_size = ctx.size();
-                let x_offset = (widget_size.width - (image.width() as f64 * data.scale_factor) as f64) / 2.0;
-                let y_offset = (widget_size.height - (image.height() as f64 * data.scale_factor) as f64) / 2.0;
+                let image_width = image.width() as f64 * data.scale_factor;
+                let image_height = image.height() as f64 * data.scale_factor;
+                let x_offset = (widget_size.width - image_width) / 2.0;
+                let y_offset = (widget_size.height - image_height) / 2.0;
                 // Adjust mouse coordinates
                 let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
                 centered_pos.x = centered_pos.x / data.scale_factor;
@@ -221,7 +225,33 @@ impl Widget<GrabData> for ScreenshotWidget {
                         .window_size((400.0, 300.0)));
                 }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
 
-                let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+                let image_data_clone = data.image_data.clone(); // Clone the data for use in the closure
+
+                let clipboard_button = Button::new("Copy to Clipboard").on_click(move |_ctx, _data: &mut GrabData ,_env| {
+                    // copy to the clipboard
+                    /*let image = load_from_memory_with_format(&image_data_clone, image::ImageFormat::Png)
+                        .expect("Failed to load image from memory");
+                    //let mut image = image::open("C:\\Users\\Domenico\\Desktop\\Screen1.png").expect("failed");
+                    let mut clipboard = arboard::Clipboard::new().unwrap();
+                    let sizes = ((image_data_clone.len()/4) as f64).sqrt() as usize;
+                    //println!("{} {}",sizes * (image.width()/image.height()) as usize,sizes * (image.height()/image.width()) as usize);
+                    let img = arboard::ImageData {
+                        width: sizes,
+                        height: sizes,
+                        bytes: Cow::from(image_data_clone.clone())
+                    };
+                    clipboard.set_image(img).expect("Error in Copying to the Clipboard");*/
+                    Application::global().clipboard().put_formats(&mut [ClipboardFormat::new("image/png", _data.image_data.clone())]);
+                }).fix_size(BUTTON_WIDTH * 2.0, BUTTON_HEIGHT);
+
+                let mut rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+
+                // increase size of image for images too small
+                while (window_width as f64 * data.scale_factor) <= BUTTON_WIDTH * 2.0 + 10.0 {
+                    println!("Increment");
+                    data.scale_factor+=(BUTTON_WIDTH * 2.0 + 10.0)/(window_width as f64);
+                }
+
                 ctx.window().close();
                 ctx.new_window(
                     WindowDesc::new(
@@ -231,12 +261,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     ZStack::new(image)
                                         .with_centered_child(ScreenshotWidget)
                                 )
-                        ).with_child(Flex::row().with_child(save_button).with_child(cancel_button)))
+                        ).with_child(Flex::column().with_child(Flex::row().with_child(save_button).with_child(cancel_button)).with_child(clipboard_button)))
                         .set_position((rect.x0,rect.y0))
-                        .window_size(Size::new( window_width as f64 * data.scale_factor,(window_height as f64 * data.scale_factor + 200.0)))
+                        .window_size(Size::new( window_width as f64 * data.scale_factor,(window_height as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
                         .resizable(false));
             }
-            //fs::write(format!("Screen{}.{}",data.screenshot_number,data.save_format), data.image_data.clone()).unwrap();
         }
     }
 
