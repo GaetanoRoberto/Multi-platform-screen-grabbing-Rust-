@@ -3,7 +3,7 @@ mod constants;
 mod main_gui_building;
 mod handlers;
 
-use std::{fs, thread};
+use std::env;
 use std::arch::x86_64::_addcarry_u32;
 use std::fs::File;
 use std::io::Read;
@@ -33,6 +33,7 @@ use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use crate::image_screen::ScreenshotWidget;
 use crate::main_gui_building::build_ui;
 use crate::handlers::Delegate;
+use constants::{MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
 
 #[derive(Clone, Data, Serialize, Deserialize, Debug, Lens)]
 pub struct GrabData {
@@ -52,12 +53,13 @@ pub struct GrabData {
     hotkey: Vec<String>,
     hotkey_sequence: usize,
     set_hot_key: bool,
+    trigger_ui: bool
 }
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(build_ui())
         .title("Screen grabbing Utility")
-        .window_size((400.0, 300.0));
+        .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
 
     let file = File::open("settings.json").unwrap();
     //let data: GrabData = from_reader(file).unwrap();
@@ -66,7 +68,7 @@ fn main() -> Result<(), PlatformError> {
         screenshot_number: 1,
         monitor_index: 0,
         image_data: vec![],
-        save_path: Path::new("C:\\Users\\Alessandro\\Desktop").to_path_buf().into_boxed_path(),
+        save_path: env::current_dir().expect("Failed to get current directory").into_boxed_path(),
         save_format: "png".to_string(),
         press: false,
         first_screen: true,
@@ -75,6 +77,7 @@ fn main() -> Result<(), PlatformError> {
         hotkey: vec!["Alt".to_string(),"5".to_string()],
         hotkey_sequence: 0,
         set_hot_key: false,
+        trigger_ui: false,
     };
 
     AppLauncher::with_window(main_window).delegate(Delegate).launch(data)

@@ -1,11 +1,12 @@
 use std::fs;
 use std::fs::File;
+use std::path::Path;
 use druid::widget::{Button, Flex, Label};
 use druid::{Size, Widget, WidgetExt, WindowDesc};
 use druid_widget_nursery::DropdownSelect;
 use screenshots::Screen;
 use serde_json::from_reader;
-use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH};
+use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH,MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
 use crate::GrabData;
 use crate::image_screen::ScreenshotWidget;
 use crate::handlers::Enter;
@@ -121,7 +122,7 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
 pub fn create_save_cancel_buttons() -> impl Widget<GrabData> {
     let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
         if !_data.image_data.is_empty() {
-            fs::write(format!("Screen{}.{}",_data.screenshot_number,_data.save_format), _data.image_data.clone()).unwrap();
+            fs::write(format!("{}\\Screen{}.{}", _data.save_path.to_str().unwrap(), _data.screenshot_number, _data.save_format), _data.image_data.clone()).unwrap();
         }
         if _data.screenshot_number == u32::MAX {
             _data.screenshot_number = 0;
@@ -134,7 +135,7 @@ pub fn create_save_cancel_buttons() -> impl Widget<GrabData> {
         _ctx.window().close();
         _ctx.new_window(WindowDesc::new(build_ui())
             .title("Screen grabbing Utility")
-            .window_size((400.0, 300.0)));
+            .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)));
     }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
 
     let cancel_button = Button::new("Cancel").on_click(move |_ctx, _data: &mut GrabData ,_env| {
@@ -144,10 +145,33 @@ pub fn create_save_cancel_buttons() -> impl Widget<GrabData> {
         _ctx.window().close();
         _ctx.new_window(WindowDesc::new(build_ui())
             .title("Screen grabbing Utility")
-            .window_size((400.0, 300.0)));
+            .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)));
     }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
 
     Flex::row().with_child(save_button).with_child(cancel_button)
+}
+
+fn build_path_dialog() -> impl Widget<GrabData> {
+    let path_label = Label::dynamic(|data: &GrabData, _env: &_| data.save_path.to_str().unwrap().to_string() );
+
+    let change_path_button = Button::new("Set New Path").on_click(|ctx, data: &mut GrabData, _env| {
+        let result = nfd::open_pick_folder(Some(data.save_path.to_str().unwrap())).ok().unwrap();
+        match result {
+            nfd::Response::Okay(path) => {
+                data.trigger_ui = !data.trigger_ui;
+                data.save_path = Path::new(path.as_str()).to_path_buf().into_boxed_path();
+            },
+            _ => (),
+        };
+        println!("{:?}",data.save_path);
+    });
+
+    let mut ui_row = Flex::row();
+    ui_row.add_flex_child(path_label, 2.0);
+    ui_row.add_default_spacer();
+    ui_row.add_flex_child(change_path_button, 1.0);
+
+    ui_row
 }
 
 pub(crate) fn build_ui() -> impl Widget<GrabData> {
@@ -157,6 +181,8 @@ pub(crate) fn build_ui() -> impl Widget<GrabData> {
     ui_column.add_flex_child(create_output_format_dropdown(),1.0);
     ui_column.add_default_spacer();
     ui_column.add_flex_child(create_hotkey_ui(),1.0);
+    ui_column.add_default_spacer();
+    ui_column.add_flex_child(build_path_dialog(),1.0);
 
     ui_column.controller(Enter)
     // Flex::column()

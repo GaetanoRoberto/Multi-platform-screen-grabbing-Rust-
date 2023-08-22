@@ -48,6 +48,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
             Event::KeyDown(key_event) => {
                 if data.set_hot_key {
                     // capture and set the hotkey for screen grabbing
+                    data.trigger_ui = !data.trigger_ui;
                     data.hotkey.push(key_event.key.to_string());
                     // println!("Key down: {:?}", key_event.key.to_string());
                 } else {
@@ -62,7 +63,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                         // acquire screen
                         let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
                         let image = screen.capture_area(0, 0, screen.display_info.width as u32, screen.display_info.height as u32).unwrap();
-                        fs::write(format!("Screen{}.{}",data.screenshot_number,data.save_format), image.to_png(None).unwrap()).unwrap();
+                        fs::write(format!("{}\\Screen{}.{}", data.save_path.to_str().unwrap(), data.screenshot_number, data.save_format), image.to_png(None).unwrap()).unwrap();
                         if data.screenshot_number == u32::MAX {
                             data.screenshot_number = 0;
                         } else {
