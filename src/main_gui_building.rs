@@ -1,8 +1,10 @@
-use std::{fmt, fs};
+use std::{fmt, fs, thread};
 use std::error::Error;
 use std::fmt::Debug;
 use std::fs::File;
+use std::ops::DerefMut;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use druid::widget::{Button, Controller, Flex, Label, TextBox, ValueTextBox};
 use druid::{Color, Command, Env, Event, EventCtx, KbKey, Selector, Size, Widget, WidgetExt, WindowDesc};
@@ -17,6 +19,7 @@ use crate::GrabData;
 use crate::image_screen::ScreenshotWidget;
 use crate::handlers::{Enter, NumericTextBoxController};
 use crate::input_field::PositiveNumberFormatter;
+use tokio;
 
 pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize) {
     let screen = Screen::all().unwrap()[monitor_index];
@@ -83,11 +86,35 @@ fn create_output_format_dropdown() -> Flex<GrabData> {
 }
 
 fn create_hotkey_ui() -> impl Widget<GrabData> {
+    let file = File::open("settings.json").unwrap();
+    let data: GrabData = from_reader(file).unwrap();
+
     let mut fusion = Flex::column();
     let mut ui_column = Flex::row();
     let mut ui2_column = Flex::row();
 
-    ui2_column.add_flex_child(Label::dynamic(|data: &GrabData, _| "Selected Hotkeys/Timer Monitor: ".to_owned() + &(data.monitor_index.clone() + 1).to_string()), 1.0);
+    ui2_column.add_flex_child(Label::new("Selected Hotkeys/Timer Monitor: "), 1.0);
+    ui2_column.add_default_spacer();
+
+    let mut monitors = vec![];
+    let screens = Screen::all().unwrap();
+    for monitor_index in 0..screens.len() {
+        monitors.push(((monitor_index+1).to_string(),monitor_index))
+    }
+
+    let mut build_monitors = vec![((data.monitor_index+1).to_string(),data.monitor_index)];
+
+    for monitor in monitors {
+        if monitor.1 != data.monitor_index {
+            build_monitors.push(monitor);
+        }
+    }
+
+    ui2_column.add_flex_child(
+        DropdownSelect::new(build_monitors)
+            .lens(GrabData::monitor_index),
+        1.0
+    );
 
     ui_column.add_default_spacer();
     ui_column.add_flex_child(Button::dynamic(|data: & GrabData, _env| {
@@ -110,7 +137,7 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
     ui_column.add_flex_child(Label::new(|data: &GrabData, _env: &_| {
         data.hotkey.join(" + ")
     }), 1.0);
-    let screens = Screen::all().unwrap();
+    /*let screens = Screen::all().unwrap();
     let mut monitor_buttons = Flex::row();
     let mut monitor_index = 1;
     for screen in screens {
@@ -122,7 +149,7 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
         monitor_index+=1
     }
     ui_column.add_default_spacer();
-    ui_column.add_flex_child(monitor_buttons, 1.0);
+    ui_column.add_flex_child(monitor_buttons, 1.0);*/
 
     fusion.add_flex_child(ui2_column,1.0);
     fusion.add_default_spacer();
@@ -186,6 +213,14 @@ fn build_path_dialog() -> impl Widget<GrabData> {
     ui_row
 }
 
+#[tokio::main]
+pub async fn timer_handling(ctx: &mut EventCtx,monitor_index: usize, time: u64) {
+    // Sleep for time seconds
+    tokio::time::sleep(Duration::from_secs(time)).await;
+    // take the screenshot
+    start_screening(ctx,monitor_index);
+}
+
 fn create_timer_ui() -> impl Widget<GrabData> {
     let label = Label::new("Insert here the Delay in Seconds:");
 
@@ -203,15 +238,7 @@ fn create_timer_ui() -> impl Widget<GrabData> {
     .with_text_color(Color::rgb(0.8, 0.0, 0.0));
 
     let start_timer_btn = Button::new("Start Timer").on_click(|ctx, data: &mut GrabData, _env| {
-        //start the timer
-        let delay_value = data.delay.parse::<u64>();
-        if delay_value.is_ok() {
-            println!("{:?}",Duration::from_secs(delay_value.clone().unwrap()));
-            data.timer_id = ctx.request_timer(Duration::from_secs(delay_value.unwrap())).into_raw();
-        } else {
-            data.input_error.0 = true;
-            data.input_error.1 = "Empty Input: Insert a Positive Number in the Field.".to_string()
-        }
+        timer_handling(ctx,data.monitor_index,data.delay.parse::<u64>().unwrap());
     });
 
     let mut ui_row = Flex::row();

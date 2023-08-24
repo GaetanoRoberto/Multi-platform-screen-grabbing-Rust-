@@ -35,7 +35,6 @@ use crate::image_screen::ScreenshotWidget;
 use crate::main_gui_building::build_ui;
 use crate::handlers::Delegate;
 use constants::{MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
-
 #[derive(Clone, Data, Serialize, Deserialize, Debug, Lens)]
 pub struct GrabData {
     screenshot_number: u32,
@@ -57,7 +56,6 @@ pub struct GrabData {
     delay: String,
     delay_length: usize,
     input_error: (bool,String),
-    timer_id : u64,
     trigger_ui: bool,
 }
 
@@ -85,7 +83,6 @@ fn main() -> Result<(), PlatformError> {
         delay: "".to_string(),
         delay_length: 0,
         input_error: (false,"Invalid Input: Only Positive Number are Allowed.".to_string()),
-        timer_id: 0,
         trigger_ui: false,
     };
 

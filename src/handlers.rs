@@ -1,6 +1,6 @@
 use std::fs;
 use std::fs::File;
-use druid::{AppDelegate, commands, DelegateCtx, Env, Event, EventCtx, InternalEvent, TimerToken, Widget, WindowDesc, WindowState};
+use druid::{AppDelegate, commands, DelegateCtx, Env, Event, EventCtx, InternalEvent, Selector, TimerToken, Widget, WindowDesc, WindowState};
 use druid::widget::{Controller,Flex};
 use serde_json::to_writer;
 use crate::GrabData;
@@ -117,7 +117,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
                     }
                 }
             }
-            Event::Internal(internal_event) => {
+            /*Event::Internal(internal_event) => {
                 // Check if it's a timer event for a specific widget ID
                 if let InternalEvent::RouteTimer(token, widget_id) = internal_event {
                     if *token == TimerToken::from_raw(data.timer_id) {
@@ -128,7 +128,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
                     // For other internal events, propagate them
                     child.event(ctx, event, data, env);
                 }
-            }
+            }*/
             _ => {
                 // propagates other event in order to allow user input
                 child.event(ctx, event, data, env);
