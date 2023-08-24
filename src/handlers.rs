@@ -1,10 +1,10 @@
 use std::fs;
 use std::fs::File;
-use druid::{AppDelegate, commands, DelegateCtx, Env, Event, EventCtx, Widget, WindowDesc, WindowState};
+use druid::{AppDelegate, commands, DelegateCtx, Env, Event, EventCtx, InternalEvent, TimerToken, Widget, WindowDesc, WindowState};
 use druid::widget::{Controller,Flex};
 use serde_json::to_writer;
 use crate::GrabData;
-use crate::main_gui_building::build_ui;
+use crate::main_gui_building::{build_ui, start_screening};
 
 pub struct Delegate;
 
@@ -42,15 +42,19 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
             Event::WindowConnected => {
                 ctx.request_focus();
             }
-            /*Event::KeyUp(key_event) => {
-                println!("Key up: {:?}", key_event.key);
-            }*/
+            Event::MouseDown(mouse) => {
+                if mouse.button.is_left() {
+                    data.input_error.0 = false;
+                    ctx.resign_focus();
+                    ctx.request_focus();
+                }
+            }
+
             Event::KeyDown(key_event) => {
                 if data.set_hot_key {
                     // capture and set the hotkey for screen grabbing
                     data.trigger_ui = !data.trigger_ui;
                     data.hotkey.push(key_event.key.to_string());
-                    // println!("Key down: {:?}", key_event.key.to_string());
                 } else {
                     // check current combination of the hotkey
                     if data.hotkey[data.hotkey_sequence] == key_event.key.to_string() {
@@ -61,16 +65,8 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                     // if the pressed keys corresponds to the hotkey combination, acquire the screen
                     if data.hotkey_sequence == data.hotkey.len() {
                         // acquire screen
-                        let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
-                        let image = screen.capture_area(0, 0, screen.display_info.width as u32, screen.display_info.height as u32).unwrap();
-                        fs::write(format!("{}\\Screen{}.{}", data.save_path.to_str().unwrap(), data.screenshot_number, data.save_format), image.to_png(None).unwrap()).unwrap();
-                        if data.screenshot_number == u32::MAX {
-                            data.screenshot_number = 0;
-                        } else {
-                            data.screenshot_number+=1;
-                        }
+                        start_screening(ctx,data.monitor_index);
                         data.hotkey_sequence = 0;
-
                     }
                 }
             }
@@ -93,5 +89,50 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
 
     fn update(&mut self, child: &mut W, ctx: &mut druid::UpdateCtx, old_data: &GrabData, data: &GrabData, env: &Env) {
         child.update(ctx, old_data, data, env)
+    }
+}
+
+pub struct NumericTextBoxController;
+
+impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
+    fn event(&mut self, child: &mut W, ctx: &mut EventCtx, event: &Event, data: &mut GrabData, env: &druid::Env) {
+        match event {
+            Event::KeyDown(key_event) => {
+                // remove error if widget lose focus (when pressing enter)
+                if key_event.key.to_string() == "Enter" {
+                    data.input_error.0 = false;
+                }
+            }
+            Event::KeyUp(key_event) => {
+                // if lenght of the input field has not changed, it means that there is a wrong user input
+                if !(data.delay_length == data.delay.len() && data.delay_length == 0 && key_event.key.to_string() == "Backspace") {
+                    if data.delay_length == data.delay.len() {
+                        data.input_error.0 = true;
+                        // set error message in case empty input happened
+                        data.input_error.1 = "Invalid Input: Only Positive Number are Allowed.".to_string();
+                    } else {
+                        // all ok, update the length of the field
+                        data.input_error.0 = false;
+                        data.delay_length = data.delay.len();
+                    }
+                }
+            }
+            Event::Internal(internal_event) => {
+                // Check if it's a timer event for a specific widget ID
+                if let InternalEvent::RouteTimer(token, widget_id) = internal_event {
+                    if *token == TimerToken::from_raw(data.timer_id) {
+                        println!("Time elapsed: {} seconds",data.delay);
+                        start_screening(ctx,data.monitor_index);
+                    }
+                } else {
+                    // For other internal events, propagate them
+                    child.event(ctx, event, data, env);
+                }
+            }
+            _ => {
+                // propagates other event in order to allow user input
+                child.event(ctx, event, data, env);
+            }
+        }
     }
 }

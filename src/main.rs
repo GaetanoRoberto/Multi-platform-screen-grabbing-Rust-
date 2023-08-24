@@ -2,6 +2,7 @@ mod image_screen;
 mod constants;
 mod main_gui_building;
 mod handlers;
+mod input_field;
 
 use std::env;
 use std::arch::x86_64::_addcarry_u32;
@@ -12,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::ptr::null;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
-use druid::{HotKey, KeyEvent, Lens};
+use druid::{HotKey, KeyEvent, Lens, TimerToken};
 use druid::{commands, ImageBuf, Application, Color, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
 use druid::keyboard_types::Key;
 use druid::kurbo::common::factor_quartic_inner;
@@ -53,7 +54,11 @@ pub struct GrabData {
     hotkey: Vec<String>,
     hotkey_sequence: usize,
     set_hot_key: bool,
-    trigger_ui: bool
+    delay: String,
+    delay_length: usize,
+    input_error: (bool,String),
+    timer_id : u64,
+    trigger_ui: bool,
 }
 
 fn main() -> Result<(), PlatformError> {
@@ -77,6 +82,10 @@ fn main() -> Result<(), PlatformError> {
         hotkey: vec!["Alt".to_string(),"5".to_string()],
         hotkey_sequence: 0,
         set_hot_key: false,
+        delay: "".to_string(),
+        delay_length: 0,
+        input_error: (false,"Invalid Input: Only Positive Number are Allowed.".to_string()),
+        timer_id: 0,
         trigger_ui: false,
     };
 

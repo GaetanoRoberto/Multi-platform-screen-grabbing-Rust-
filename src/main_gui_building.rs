@@ -1,15 +1,35 @@
-use std::fs;
+use std::{fmt, fs};
+use std::error::Error;
+use std::fmt::Debug;
 use std::fs::File;
 use std::path::Path;
-use druid::widget::{Button, Flex, Label};
-use druid::{Size, Widget, WidgetExt, WindowDesc};
-use druid_widget_nursery::DropdownSelect;
+use std::time::Duration;
+use druid::widget::{Button, Controller, Flex, Label, TextBox, ValueTextBox};
+use druid::{Color, Command, Env, Event, EventCtx, KbKey, Selector, Size, Widget, WidgetExt, WindowDesc};
+use druid::text::{Validation, ValidationError};
+use druid_widget_nursery::{DropdownSelect, WidgetExt as OtherWidgetExt};
+use druid::text::{Formatter, Selection};
+use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use screenshots::Screen;
 use serde_json::from_reader;
 use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH,MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
 use crate::GrabData;
 use crate::image_screen::ScreenshotWidget;
-use crate::handlers::Enter;
+use crate::handlers::{Enter, NumericTextBoxController};
+use crate::input_field::PositiveNumberFormatter;
+
+pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize) {
+    let screen = Screen::all().unwrap()[monitor_index];
+    let rect = druid::Screen::get_monitors()[monitor_index].virtual_rect();
+    ctx.window().close();
+    ctx.new_window(
+        WindowDesc::new(
+            Flex::<GrabData>::row().with_child(ScreenshotWidget))
+            .show_titlebar(false)
+            .transparent(true)
+            .set_position((rect.x0,rect.y0))
+            .window_size(Size::new(screen.display_info.width as f64,screen.display_info.height as f64)));
+}
 
 fn create_monitor_buttons() -> Flex<GrabData> {
     let screens = Screen::all().unwrap();
@@ -19,15 +39,7 @@ fn create_monitor_buttons() -> Flex<GrabData> {
         let btn = Button::new( "📷 Monitor ".to_owned() + &monitor_index.to_string()).on_click(
             move |_ctx, _data: &mut GrabData ,_env| {
                 _data.monitor_index = monitor_index - 1;
-                let rect = druid::Screen::get_monitors()[_data.monitor_index].virtual_rect();
-                _ctx.window().close();
-                _ctx.new_window(
-                    WindowDesc::new(
-                        Flex::<GrabData>::row().with_child(ScreenshotWidget))
-                        .show_titlebar(false)
-                        .transparent(true)
-                        .set_position((rect.x0,rect.y0))
-                        .window_size(Size::new(screen.display_info.width as f64,screen.display_info.height as f64)));
+                start_screening(_ctx,_data.monitor_index);
             }
         );
         monitor_buttons = monitor_buttons.with_child(btn);
@@ -75,7 +87,7 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
     let mut ui_column = Flex::row();
     let mut ui2_column = Flex::row();
 
-    ui2_column.add_flex_child(Label::dynamic(|data: &GrabData, _| "Selected Hotkeys Monitor: ".to_owned() + &(data.monitor_index.clone() + 1).to_string()), 1.0);
+    ui2_column.add_flex_child(Label::dynamic(|data: &GrabData, _| "Selected Hotkeys/Timer Monitor: ".to_owned() + &(data.monitor_index.clone() + 1).to_string()), 1.0);
 
     ui_column.add_default_spacer();
     ui_column.add_flex_child(Button::dynamic(|data: & GrabData, _env| {
@@ -152,9 +164,9 @@ pub fn create_save_cancel_buttons() -> impl Widget<GrabData> {
 }
 
 fn build_path_dialog() -> impl Widget<GrabData> {
-    let path_label = Label::dynamic(|data: &GrabData, _env: &_| data.save_path.to_str().unwrap().to_string() );
+    let path_label = Label::dynamic(|data: &GrabData, _env: &_| "Current Path: ".to_owned() + data.save_path.to_str().unwrap() );
 
-    let change_path_button = Button::new("Set New Path").on_click(|ctx, data: &mut GrabData, _env| {
+    let change_path_button = Button::new("📁").on_click(|ctx, data: &mut GrabData, _env| {
         let result = nfd::open_pick_folder(Some(data.save_path.to_str().unwrap())).ok().unwrap();
         match result {
             nfd::Response::Okay(path) => {
@@ -174,6 +186,44 @@ fn build_path_dialog() -> impl Widget<GrabData> {
     ui_row
 }
 
+fn create_timer_ui() -> impl Widget<GrabData> {
+    let label = Label::new("Insert here the Delay in Seconds:");
+
+    let textbox = ValueTextBox::new(TextBox::new(), PositiveNumberFormatter)
+        .update_data_while_editing(true)
+        .lens(GrabData::delay);
+
+    let error_label = Label::dynamic(|data: &GrabData, _: &Env| {
+        if data.input_error.0 {
+            data.input_error.1.clone()
+        } else {
+            String::new()
+        }
+    })
+    .with_text_color(Color::rgb(0.8, 0.0, 0.0));
+
+    let start_timer_btn = Button::new("Start Timer").on_click(|ctx, data: &mut GrabData, _env| {
+        //start the timer
+        let delay_value = data.delay.parse::<u64>();
+        if delay_value.is_ok() {
+            println!("{:?}",Duration::from_secs(delay_value.clone().unwrap()));
+            data.timer_id = ctx.request_timer(Duration::from_secs(delay_value.unwrap())).into_raw();
+        } else {
+            data.input_error.0 = true;
+            data.input_error.1 = "Empty Input: Insert a Positive Number in the Field.".to_string()
+        }
+    });
+
+    let mut ui_row = Flex::row();
+    ui_row.add_flex_child(label, 2.0);
+    ui_row.add_default_spacer();
+    ui_row.add_flex_child(textbox, 1.0);
+    ui_row.add_default_spacer();
+    ui_row.add_flex_child(start_timer_btn, 1.0);
+
+    Flex::column().with_child(ui_row).with_child(error_label).controller(NumericTextBoxController)
+}
+
 pub(crate) fn build_ui() -> impl Widget<GrabData> {
     let mut ui_column = Flex::column();
     ui_column.add_flex_child(create_monitor_buttons(),1.0);
@@ -183,6 +233,8 @@ pub(crate) fn build_ui() -> impl Widget<GrabData> {
     ui_column.add_flex_child(create_hotkey_ui(),1.0);
     ui_column.add_default_spacer();
     ui_column.add_flex_child(build_path_dialog(),1.0);
+    ui_column.add_default_spacer();
+    ui_column.add_flex_child(create_timer_ui(),1.0);
 
     ui_column.controller(Enter)
     // Flex::column()
