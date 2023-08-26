@@ -14,7 +14,7 @@ use std::ptr::null;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use druid::{HotKey, KeyEvent, Lens, TimerToken};
-use druid::{commands, ImageBuf, Application, Color, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
+use druid::{commands, ImageBuf, Application, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
 use druid::keyboard_types::Key;
 use druid::kurbo::common::factor_quartic_inner;
 use druid::piet::{ImageFormat, TextStorage};
@@ -35,6 +35,20 @@ use crate::image_screen::ScreenshotWidget;
 use crate::main_gui_building::build_ui;
 use crate::handlers::Delegate;
 use constants::{MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+enum Annotation {
+    None,
+    Circle,
+    Line,
+    Cross,
+    Rectangle,
+    FreeLine,
+    Highlighter,
+    Arrow,
+    Text
+}
+
 #[derive(Clone, Data, Serialize, Deserialize, Debug, Lens)]
 pub struct GrabData {
     screenshot_number: u32,
@@ -57,6 +71,9 @@ pub struct GrabData {
     delay_length: usize,
     input_error: (bool,String),
     trigger_ui: bool,
+    #[data(ignore)]
+    annotation: Annotation,
+    color: (u8,u8,u8,u8)
 }
 
 fn main() -> Result<(), PlatformError> {
@@ -84,7 +101,8 @@ fn main() -> Result<(), PlatformError> {
         delay_length: 0,
         input_error: (false,"Invalid Input: Only Positive Number are Allowed.".to_string()),
         trigger_ui: false,
+        annotation: Annotation::None,
+        color: (255,255,255,255),
     };
-
     AppLauncher::with_window(main_window).delegate(Delegate).launch(data)
 }

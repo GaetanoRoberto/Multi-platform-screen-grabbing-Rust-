@@ -187,7 +187,14 @@ pub fn create_save_cancel_buttons() -> impl Widget<GrabData> {
             .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)));
     }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
 
-    Flex::row().with_child(save_button).with_child(cancel_button)
+    let mut ui_row = Flex::row();
+
+    ui_row.add_flex_child(save_button, 0.1);
+    ui_row.add_default_spacer();
+    ui_row.add_flex_child(cancel_button, 0.1);
+    ui_row.add_default_spacer();
+
+    ui_row
 }
 
 fn build_path_dialog() -> impl Widget<GrabData> {

@@ -1,17 +1,21 @@
 use std::borrow::Cow;
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::fs;
-use std::fs::create_dir_all;
-use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Point, Rect, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
+use std::fs::{create_dir_all, File};
+use std::path::Path;
+use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color as druidColor, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Point, Rect, Scale, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
-use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat, Label};
+use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat, Label, ClipBox};
 use image::{DynamicImage, EncodableLayout, ImageBuffer, load_from_memory_with_format, Rgba};
 use image::imageops::FilterType;
-use crate::{main_gui_building::build_ui, constants, GrabData};
+use imageproc::drawing::{Canvas, draw_cross, draw_filled_rect, draw_hollow_circle, draw_hollow_circle_mut, draw_hollow_rect, draw_line_segment, draw_polygon, draw_text};
+use serde_json::from_reader;
+use crate::{main_gui_building::build_ui, constants, GrabData, Annotation};
 use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
 use crate::main_gui_building::create_save_cancel_buttons;
+use rusttype::Font;
 
 pub struct ScreenshotWidget;
 
@@ -99,9 +103,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                     max_y2 = p2y;
                 }
 
-                // empty positions
-                data.positions = vec![];
-
                 let scale_factor_x = ctx.scale().x();
                 let scale_factor_y = ctx.scale().y();
                 min_x = (min_x2 as f64 * scale_factor_x) as i32;
@@ -121,72 +122,185 @@ impl Widget<GrabData> for ScreenshotWidget {
                     let image = screen.capture_area(min_x as i32, min_y as i32, (max_x - min_x) as u32, (max_y - min_y) as u32).unwrap();
                     let buffer = image.to_png(None).unwrap();
                     data.image_data = buffer;
+                    // empty positions
+                    data.positions = vec![];
                 }
 
                 let mut dynamic_image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
                     .expect("Failed to load image from memory");
-                let window_width;
-                let window_height;
-                let cropped_image;
-                let image_buf;
+                let mut window_width= 0;
+                let mut window_height = 0;
+                let mut cropped_annotated_image = dynamic_image.clone();
+                let mut image_buf = ImageBuf::empty();
                 if !data.first_screen {
 
-                    //let image_rect_cropped = Rect::new(min_x as f64,min_y as f64,max_x as f64,max_y as f64);
-                    /*let tras_x = (ctx.window().get_size().width - dynamic_image.width() as f64)/2.0;
-                    let tras_y = ctx.window().get_size().height - dynamic_image.height() as f64 - 200.0;
-                    min_x = (min_x2 - tras_x) as i32;
-                    max_x = (max_x2 - tras_x) as i32;
-                    min_y = (min_y2 - tras_y) as i32;
-                    max_y = (max_y2 - tras_y) as i32;
-                    println!("{}",ctx.window().get_size().width - dynamic_image.width() as f64);
-                    // 200 ok (sotto ho messo + 200)
-                    println!("{}",ctx.window().get_size().height - dynamic_image.height() as f64);
-                    println!("{} {} {} {}",min_x,min_y,(max_x - min_x),(max_y - min_y));*/
-                    if min_x < 0 || min_y < 0 || (max_x - min_x) <=0 || (max_y - min_y) <=0 {
-                        let rgba_image = dynamic_image.to_rgba8();
-                        let buffer = ImageBuf::from_raw(
-                            rgba_image.clone().into_raw(),
-                            ImageFormat::RgbaSeparate,
-                            rgba_image.clone().width() as usize,
-                            rgba_image.clone().height() as usize,
-                        );
-                        let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
-                        ctx.window().close();
-                        ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop Further, choose if save the image as it is or undo:"))
-                            .with_child(Image::new(buffer))
-                            .with_child(create_save_cancel_buttons())).set_position((rect.x0,rect.y0))
-                            .window_size(Size::new( 3.0 * dynamic_image.width() as f64 * data.scale_factor,(3.0 * dynamic_image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
-                            .resizable(false));
-                        return;
-                    }
-                    cropped_image = dynamic_image.crop(
-                        min_x as u32,
-                        min_y as u32,
-                        (max_x - min_x) as u32,
-                        (max_y - min_y) as u32
-                    );
-                    if cropped_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || cropped_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
-                        data.scale_factor = SCALE_FACTOR;
-                    } else {
-                        data.scale_factor = 1.0;
-                    }
-                    cropped_image.resize((cropped_image.width() as f64 * data.scale_factor) as u32, (cropped_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
+                    match data.annotation {
+                        Annotation::None => {
+                            if min_x < 0 || min_y < 0 || (max_x - min_x) <=0 || (max_y - min_y) <=0 {
+                                let rgba_image = dynamic_image.to_rgba8();
+                                let buffer = ImageBuf::from_raw(
+                                    rgba_image.clone().into_raw(),
+                                    ImageFormat::RgbaSeparate,
+                                    rgba_image.clone().width() as usize,
+                                    rgba_image.clone().height() as usize,
+                                );
+                                let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+                                ctx.window().close();
+                                ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop Further, choose if save the image as it is or undo:"))
+                                    .with_child(Image::new(buffer))
+                                    .with_child(create_save_cancel_buttons())).set_position((rect.x0,rect.y0))
+                                    .window_size(Size::new( 3.0 * dynamic_image.width() as f64 * data.scale_factor,(3.0 * dynamic_image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
+                                    .resizable(false));
+                                return;
+                            }
+                            cropped_annotated_image = dynamic_image.crop(
+                                min_x as u32,
+                                min_y as u32,
+                                (max_x - min_x) as u32,
+                                (max_y - min_y) as u32
+                            );
+                            if cropped_annotated_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || cropped_annotated_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
+                                data.scale_factor = SCALE_FACTOR;
+                            } else {
+                                data.scale_factor = 1.0;
+                            }
+                            cropped_annotated_image = cropped_annotated_image.resize((cropped_annotated_image.width() as f64 * data.scale_factor) as u32, (cropped_annotated_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
-                    window_width = cropped_image.width();
-                    window_height = cropped_image.height();
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
 
+                        },
+                        Annotation::Circle => {
+                            // compute the center
+                            let center_x = (max_x - min_x) as f64 / 2.0 + min_x as f64;
+                            let center_y = (max_y - min_y) as f64 / 2.0 + min_y as f64;
+                            let radius = (((max_x - min_x).pow(2) + (max_y - min_y).pow(2)) as f64).sqrt()/ 2.0;
+
+
+                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                                .expect("Failed to load image from memory");
+
+                            cropped_annotated_image = DynamicImage::from(draw_hollow_circle(&image, (center_x as i32, center_y as i32), radius as i32, Rgba([data.color.0,
+                                data.color.1, data.color.2, data.color.3])));
+
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
+
+                        },
+                        Annotation::Line => {
+                            // draw line
+                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                                .expect("Failed to load image from memory");
+
+                            // draw line with first and last position, then clear the vector
+                            cropped_annotated_image = DynamicImage::from(
+                                draw_line_segment(&image,
+                                                  (data.positions[0].0 as f32, data.positions[0].1 as f32),
+                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
+                                                  Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+                            // clear the vector
+                            data.positions = vec![];
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
+                        },
+                        Annotation::Cross => {
+                            // draw cross through two lines
+                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                                .expect("Failed to load image from memory");
+
+                            // draw line with first and last position, then clear the vector
+                            cropped_annotated_image = DynamicImage::from(
+                                draw_line_segment(&image,
+                                                  (data.positions[0].0 as f32, data.positions[0].1 as f32),
+                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
+                                                  Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+
+                            // draw line with first and last position, then clear the vector
+                            cropped_annotated_image = DynamicImage::from(
+                                draw_line_segment(&cropped_annotated_image,
+                                                  (data.positions[0].0 as f32, data.positions[data.positions.len()-1].1 as f32),
+                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[0].1 as f32),
+                                                  Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+
+                            // clear the vector
+                            data.positions = vec![];
+
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
+                        },
+                        Annotation::Rectangle => {
+                            // draw rectangle
+                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                                .expect("Failed to load image from memory");
+
+                            let rectangle = imageproc::rect::Rect::at(min_x, min_y).of_size((max_x - min_x) as u32, (max_y - min_y) as u32);
+                            cropped_annotated_image = DynamicImage::from(
+                                draw_hollow_rect(&image,rectangle,Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
+                        },
+                        Annotation::FreeLine => {
+                            // draw free line
+                            cropped_annotated_image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                                .expect("Failed to load image from memory");
+
+                            // draw line with first and last position, then clear the vector
+                            for pos_index in 0..(data.positions.len()-1) {
+                                cropped_annotated_image = DynamicImage::from(
+                                    draw_line_segment(&cropped_annotated_image,
+                                                      (data.positions[pos_index].0 as f32, data.positions[pos_index].1 as f32),
+                                                      (data.positions[pos_index+1].0 as f32, data.positions[pos_index+1].1 as f32),
+                                                      Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+                            }
+
+                            // clear the vector
+                            data.positions = vec![];
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
+                        },
+                        Annotation::Highlighter => {
+
+                        },
+                        Annotation::Arrow => {
+
+                        },
+                        Annotation::Text => {
+                            // draw line
+                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                                .expect("Failed to load image from memory");
+
+                            let font_data: &[u8] = include_bytes!("../OpenSans-Semibold.ttf");
+                                //fs::read(Path::new(format!("{}{}",std::env::current_dir().unwrap().to_str().unwrap(),"\\OpenSans-Semibold.ttf").as_str())).unwrap().as_slice();
+                            let font: Font<'static> = Font::try_from_bytes(font_data).unwrap();
+                            // draw line with first and last position, then clear the vector
+                            cropped_annotated_image = DynamicImage::from(
+                                draw_text(&image,
+                                          Rgba([data.color.0, data.color.1, data.color.2, data.color.3]),
+                                          data.positions[0].0 as i32, data.positions[0].1 as i32,
+                                          rusttype::Scale::uniform(20.0), &font, "prova"));
+                            // clear the vector
+                            data.positions = vec![];
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
+                        },
+                    }
+
+                    // clear the position vector for cases different than line
+                    data.positions = vec![];
                     let mut png_buffer = std::io::Cursor::new(Vec::new());
-                    cropped_image.write_to(&mut png_buffer, image::ImageFormat::Png)
+                    cropped_annotated_image.write_to(&mut png_buffer, image::ImageFormat::Png)
                         .expect("Failed to Save Cropped Image");
                     data.image_data = png_buffer.into_inner();
 
-                    let rgba_image = cropped_image.to_rgba8();
+                    let rgba_image = cropped_annotated_image.to_rgba8();
                     image_buf = ImageBuf::from_raw(
                         rgba_image.clone().into_raw(),
                         ImageFormat::RgbaSeparate,
                         rgba_image.clone().width() as usize,
                         rgba_image.clone().height() as usize,
                     );
+
                 } else {
                     if dynamic_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || dynamic_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
                         data.scale_factor = SCALE_FACTOR;
@@ -194,7 +308,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                         data.scale_factor = 1.0;
                     }
 
-                    dynamic_image.resize((dynamic_image.width() as f64 * data.scale_factor) as u32, (dynamic_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
+                    dynamic_image = dynamic_image.resize((dynamic_image.width() as f64 * data.scale_factor) as u32, (dynamic_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
                     let mut png_buffer = std::io::Cursor::new(Vec::new());
                     dynamic_image.write_to(&mut png_buffer, image::ImageFormat::Png)
@@ -252,10 +366,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     ZStack::new(image)
                                         .with_centered_child(ScreenshotWidget)
                                 )
-                        ).with_child(Flex::column().with_child(create_save_cancel_buttons()).with_child(clipboard_button)))
+                        ).with_child(Flex::column().with_child(create_save_cancel_buttons()).with_child(clipboard_button)
+                            .with_child(create_annotation_buttons())))
                         .set_position((rect.x0,rect.y0))
-                        .window_size(Size::new( window_width as f64 * data.scale_factor,(window_height as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
-                        .resizable(false));
+                        .window_size(Size::new( window_width as f64 * data.scale_factor,(window_height as f64 * data.scale_factor + BUTTON_HEIGHT * 6.0)))
+                        .resizable(true));
             }
         }
     }
@@ -273,3 +388,66 @@ impl Widget<GrabData> for ScreenshotWidget {
     fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: &GrabData, env: &druid::Env) {
     }
 }
+
+fn create_annotation_buttons() -> impl Widget<GrabData> {
+    let mut ui_row1 = Flex::row();
+    let mut ui_row2 = Flex::row();
+    let file = File::open("settings.json").unwrap();
+    let data: GrabData = from_reader(file).unwrap();
+    // beizer curve ellisse
+
+    ui_row1.add_flex_child(Button::new("✂").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::None;
+    }), 1.0);
+    ui_row1.add_default_spacer();
+    ui_row1.add_flex_child(Button::new("◯").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Circle;
+    }),1.0);
+    ui_row1.add_default_spacer();
+    ui_row1.add_flex_child(Button::new("╱").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Line;
+    }), 1.0);
+    ui_row1.add_default_spacer();
+    ui_row1.add_flex_child(Button::new("✖").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Cross;
+    }), 1.0);
+    ui_row1.add_default_spacer();
+    ui_row1.add_flex_child(Button::new("▢").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Rectangle;
+    }), 1.0);
+    ui_row1.add_default_spacer();
+
+
+    ui_row2.add_flex_child(Button::new("〜").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::FreeLine;
+    }), 1.0);
+    ui_row2.add_default_spacer();
+    ui_row2.add_flex_child(Button::new("⇗").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Arrow;
+    }), 1.0);
+    ui_row2.add_default_spacer();
+    ui_row2.add_flex_child(Button::new("A").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Text;
+    }), 1.0);
+    ui_row2.add_default_spacer();
+    ui_row2.add_flex_child(Button::new("💄").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Highlighter;
+    }), 1.0);
+    ui_row2.add_default_spacer();
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(Color::rgba(data.color.0 as f64,data.color.1 as f64,data.color.2 as f64,data.color.3 as f64))).on_click(|ctx, data: &mut GrabData, _env| {
+        //data.annotation = Annotation::Circle;
+        //ctx.new_sub_window(WindowDesc::new().resizable(false).show_titlebar(false))
+        // TODO: Save data to settings after changin the color
+    }).background(Color::TRANSPARENT)
+                               .border(Color::TRANSPARENT, 0.0), 1.0);
+
+    Flex::column().with_child(ui_row1).with_child(ui_row2)
+}
+
+/*fn create_color_buttons() -> impl Widget<GrabData> {
+    // 12 colori 4 x 3
+    let mut ui_col = Flex::column();
+    let mut ui_row1 = Flex::row();
+    let mut ui_row2 = Flex::row();
+    let mut ui_row3 = Flex::row();
+}*/
