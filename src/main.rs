@@ -82,9 +82,9 @@ fn main() -> Result<(), PlatformError> {
         .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
 
     let file = File::open("settings.json").unwrap();
-    //let data: GrabData = from_reader(file).unwrap();
+    let data: GrabData = from_reader(file).unwrap();
 
-    let data = GrabData {
+    /*let data = GrabData {
         screenshot_number: 1,
         monitor_index: 0,
         image_data: vec![],
@@ -103,6 +103,6 @@ fn main() -> Result<(), PlatformError> {
         trigger_ui: false,
         annotation: Annotation::None,
         color: (255,255,255,255),
-    };
+    };*/
     AppLauncher::with_window(main_window).delegate(Delegate).launch(data)
 }

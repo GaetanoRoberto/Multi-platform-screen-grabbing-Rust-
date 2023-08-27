@@ -7,11 +7,11 @@ use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color as dr
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
-use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat, Label, ClipBox};
+use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat, Label, ClipBox, Controller};
 use image::{DynamicImage, EncodableLayout, ImageBuffer, load_from_memory_with_format, Rgba};
 use image::imageops::FilterType;
 use imageproc::drawing::{Canvas, draw_cross, draw_filled_rect, draw_hollow_circle, draw_hollow_circle_mut, draw_hollow_rect, draw_line_segment, draw_polygon, draw_text};
-use serde_json::from_reader;
+use serde_json::{from_reader, to_writer};
 use crate::{main_gui_building::build_ui, constants, GrabData, Annotation};
 use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
 use crate::main_gui_building::create_save_cancel_buttons;
@@ -192,6 +192,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
                                 .expect("Failed to load image from memory");
 
+                            println!("{:?}",data.color);
                             // draw line with first and last position, then clear the vector
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&image,
@@ -260,7 +261,28 @@ impl Widget<GrabData> for ScreenshotWidget {
                             window_height = cropped_annotated_image.height();
                         },
                         Annotation::Highlighter => {
+                            // draw highliter
+                            cropped_annotated_image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                                .expect("Failed to load image from memory");
+                            /*draw_line_segment(&cropped_annotated_image,
+                                              (data.positions[pos_index].0 as f32, data.positions[pos_index].1 as f32),
+                                              (data.positions[pos_index+1].0 as f32, data.positions[pos_index+1].1 as f32),
+                                              Rgba([data.color.0, data.color.1, data.color.2, data.color.3]))*/
+                            // draw highliter with first and last position, then clear the vector
+                            for pos_index in 0..(data.positions.len()-1) {
+                                let rectangle = imageproc::rect::Rect::at(data.positions[pos_index].0 as i32, data.positions[pos_index].1 as i32)
+                                    .of_size((data.positions[pos_index+1].0 - data.positions[pos_index].0) as u32, 20);
+                                cropped_annotated_image = DynamicImage::from(
+                                    draw_polygon(&cropped_annotated_image,
+                                                 &[imageproc::point::Point::new(data.positions[pos_index].0 as i32, data.positions[pos_index].1 as i32),
+                                                     imageproc::point::Point::new((data.positions[pos_index+1].0 - data.positions[pos_index].0) as i32, 20)],
+                                                 Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+                            }
 
+                            // clear the vector
+                            data.positions = vec![];
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
                         },
                         Annotation::Arrow => {
 
@@ -434,20 +456,203 @@ fn create_annotation_buttons() -> impl Widget<GrabData> {
         data.annotation = Annotation::Highlighter;
     }), 1.0);
     ui_row2.add_default_spacer();
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(Color::rgba(data.color.0 as f64,data.color.1 as f64,data.color.2 as f64,data.color.3 as f64))).on_click(|ctx, data: &mut GrabData, _env| {
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3))).on_click(|ctx, data: &mut GrabData, _env| {
         //data.annotation = Annotation::Circle;
-        //ctx.new_sub_window(WindowDesc::new().resizable(false).show_titlebar(false))
-        // TODO: Save data to settings after changin the color
-    }).background(Color::TRANSPARENT)
-                               .border(Color::TRANSPARENT, 0.0), 1.0);
+        ctx.new_sub_window(WindowConfig::default().window_size((100.0,100.0)).show_titlebar(false), create_color_buttons(), data.clone(), _env.clone());
+    }), 1.0);
 
     Flex::column().with_child(ui_row1).with_child(ui_row2)
 }
 
-/*fn create_color_buttons() -> impl Widget<GrabData> {
-    // 12 colori 4 x 3
+fn create_color_buttons() -> impl Widget<GrabData> {
+    // 12 colors 4 x 3
     let mut ui_col = Flex::column();
     let mut ui_row1 = Flex::row();
     let mut ui_row2 = Flex::row();
     let mut ui_row3 = Flex::row();
-}*/
+
+    // giallo verde blu viola rosso arancione rosa nero bianco marrone grigio magenta
+    let orange: (u8, u8, u8, u8) = (255, 165, 0, 255);
+    let pink : (u8, u8, u8, u8) = (255, 192, 203, 255);
+    let brown : (u8, u8, u8, u8) = (139, 69, 19, 255);
+
+    // giallo verde blu viola
+    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::YELLOW.as_rgba8().0,
+            druidColor::YELLOW.as_rgba8().1,
+            druidColor::YELLOW.as_rgba8().2,
+            druidColor::YELLOW.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::YELLOW.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::GREEN.as_rgba8().0,
+            druidColor::GREEN.as_rgba8().1,
+            druidColor::GREEN.as_rgba8().2,
+            druidColor::GREEN.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::GREEN.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::BLUE.as_rgba8().0,
+            druidColor::BLUE.as_rgba8().1,
+            druidColor::BLUE.as_rgba8().2,
+            druidColor::BLUE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::BLUE.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::PURPLE.as_rgba8().0,
+            druidColor::PURPLE.as_rgba8().1,
+            druidColor::PURPLE.as_rgba8().2,
+            druidColor::PURPLE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::PURPLE.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    // rosso arancione rosa nero
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::RED.as_rgba8().0,
+            druidColor::RED.as_rgba8().1,
+            druidColor::RED.as_rgba8().2,
+            druidColor::RED.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::RED.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            orange.0,
+            orange.1,
+            orange.2,
+            orange.3))).on_click(move |ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = orange;
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            pink.0,
+            pink.1,
+            pink.2,
+            pink.3))).on_click(move |ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = pink;
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::BLACK.as_rgba8().0,
+            druidColor::BLACK.as_rgba8().1,
+            druidColor::BLACK.as_rgba8().2,
+            druidColor::BLACK.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::BLACK.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    // bianco marrone grigio magenta
+    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::WHITE.as_rgba8().0,
+            druidColor::WHITE.as_rgba8().1,
+            druidColor::WHITE.as_rgba8().2,
+            druidColor::WHITE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::WHITE.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            brown.0,
+            brown.1,
+            brown.2,
+            brown.3))).on_click(move |ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = brown;
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::GRAY.as_rgba8().0,
+            druidColor::GRAY.as_rgba8().1,
+            druidColor::GRAY.as_rgba8().2,
+            druidColor::GRAY.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::GRAY.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            druidColor::FUCHSIA.as_rgba8().0,
+            druidColor::FUCHSIA.as_rgba8().1,
+            druidColor::FUCHSIA.as_rgba8().2,
+            druidColor::FUCHSIA.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = druidColor::FUCHSIA.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_col.add_flex_child(ui_row1, 1.0);
+    ui_col.add_default_spacer();
+    ui_col.add_flex_child(ui_row2, 1.0);
+    ui_col.add_default_spacer();
+    ui_col.add_flex_child(ui_row3, 1.0);
+    ui_col.add_default_spacer();
+
+    ui_col
+}
