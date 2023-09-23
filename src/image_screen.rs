@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::fs;
 use std::fs::{create_dir_all, File};
+use std::io::Read;
 use std::path::Path;
 use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color as druidColor, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Point, Rect, Scale, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
@@ -16,6 +17,7 @@ use crate::{main_gui_building::build_ui, constants, GrabData, Annotation};
 use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
 use crate::main_gui_building::create_save_cancel_buttons;
 use rusttype::Font;
+//use ease::{Arrow, EaseType, Tweener};
 
 pub struct ScreenshotWidget;
 
@@ -356,19 +358,16 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                 let clipboard_button = Button::new("Copy to Clipboard").on_click(move |_ctx, _data: &mut GrabData ,_env| {
                     // copy to the clipboard
-                    /*let image = load_from_memory_with_format(&image_data_clone, image::ImageFormat::Png)
-                        .expect("Failed to load image from memory");
-                    //let mut image = image::open("C:\\Users\\Domenico\\Desktop\\Screen1.png").expect("failed");
-                    let mut clipboard = arboard::Clipboard::new().unwrap();
-                    let sizes = ((image_data_clone.len()/4) as f64).sqrt() as usize;
-                    //println!("{} {}",sizes * (image.width()/image.height()) as usize,sizes * (image.height()/image.width()) as usize);
+                    let image = load_from_memory_with_format(&image_data_clone, image::ImageFormat::Png).unwrap().to_rgba8();
+                    let  mut clipboard = arboard::Clipboard::new().unwrap();
+
                     let img = arboard::ImageData {
-                        width: sizes,
-                        height: sizes,
-                        bytes: Cow::from(image_data_clone.clone())
+                        width: image.width() as usize,
+                        height: image.height() as usize,
+                        bytes: Cow::from(image.as_bytes())
                     };
-                    clipboard.set_image(img).expect("Error in Copying to the Clipboard");*/
-                    Application::global().clipboard().put_formats(&mut [ClipboardFormat::new("image/png", _data.image_data.clone())]);
+                    clipboard.set_image(img).unwrap();
+
                 }).fix_size(BUTTON_WIDTH * 2.0, BUTTON_HEIGHT);
 
                 let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
@@ -461,6 +460,23 @@ fn create_annotation_buttons() -> impl Widget<GrabData> {
         ctx.new_sub_window(WindowConfig::default().window_size((100.0,100.0)).show_titlebar(false), create_color_buttons(), data.clone(), _env.clone());
     }), 1.0);
 
+        /*let r = app.window_rect();
+        let mut tweener = Tweener::new();
+        // let mut tweener: Tweener<T, geom::scalar::Default> = Default::default();
+
+        for r in r.subdivisions_iter() {
+            for r in r.subdivisions_iter() {
+                for r in r.subdivisions_iter() {
+                    for r in r.subdivisions_iter() {
+                        for r in r.subdivisions_iter() {
+                            let start = r.xy();
+                            let end = start + pt2(1.0, 1.0);
+                            tweener.register(Arrow { start, end }, Arrow { start, end });
+                        }
+                    }
+                }
+            }
+        }*/
     Flex::column().with_child(ui_row1).with_child(ui_row2)
 }
 
