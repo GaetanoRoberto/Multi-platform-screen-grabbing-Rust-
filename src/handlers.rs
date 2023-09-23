@@ -23,6 +23,7 @@ impl AppDelegate<GrabData> for Delegate {
             println!("Closing the window");
             // cancel all image data
             _data.first_screen = true;
+            _data.positions = vec![];
             _data.scale_factor = 1.0;
             _data.image_data = vec![];
             let file = File::create("settings.json").unwrap();

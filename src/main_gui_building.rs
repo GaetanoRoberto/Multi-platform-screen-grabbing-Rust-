@@ -1,17 +1,10 @@
 use std::{fmt, fs, thread};
-use std::error::Error;
 use std::fmt::Debug;
 use std::fs::File;
-use std::ops::DerefMut;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use druid::widget::{Button, Controller, Flex, Label, TextBox, ValueTextBox};
 use druid::{Color, Command, Env, Event, EventCtx, KbKey, Selector, Size, Widget, WidgetExt, WindowDesc};
-use druid::text::{Validation, ValidationError};
 use druid_widget_nursery::{DropdownSelect, WidgetExt as OtherWidgetExt};
-use druid::text::{Formatter, Selection};
-use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use screenshots::Screen;
 use serde_json::from_reader;
 use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH,MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
@@ -19,6 +12,7 @@ use crate::GrabData;
 use crate::image_screen::ScreenshotWidget;
 use crate::handlers::{Enter, NumericTextBoxController};
 use crate::input_field::PositiveNumberFormatter;
+use native_dialog::{FileDialog};
 use tokio;
 
 pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize) {
@@ -161,16 +155,38 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
 pub fn create_save_cancel_buttons() -> impl Widget<GrabData> {
     let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
         if !_data.image_data.is_empty() {
-            fs::write(format!("{}\\Screen{}.{}", _data.save_path.to_str().unwrap(), _data.screenshot_number, _data.save_format), _data.image_data.clone()).unwrap();
+            // save file
+            let result = FileDialog::new()
+                .set_filename(format!("Screen{}.{}",_data.screenshot_number, _data.save_format).as_str())
+                .add_filter("", &[_data.save_format.as_str()])
+                .set_location(_data.save_path.to_str().unwrap())
+                .show_save_single_file()
+                .unwrap();
+            match result {
+                Some(path) => {
+                    // The user selected a file to save.
+                    // save the file and increment the screenshot counter
+                    // if the user selected a custom filename, no need to increment the automatic inner counter
+                    if path.file_name().unwrap().to_string_lossy().to_string().contains("Screen") {
+                        println!("Increment no filename changed");
+                        if _data.screenshot_number == u32::MAX {
+                            _data.screenshot_number = 0;
+                        } else {
+                            _data.screenshot_number+=1;
+                        }
+                    }
+                    fs::write(path, _data.image_data.clone()).unwrap();
+                    // cancel all image data
+                    _data.image_data = vec![];
+                    _data.first_screen = true;
+                }
+                None => {
+                    // The user canceled the dialog.
+                    println!("Dialog Cancelled");
+                }
+            }
         }
-        if _data.screenshot_number == u32::MAX {
-            _data.screenshot_number = 0;
-        } else {
-            _data.screenshot_number+=1;
-        }
-        // cancel all image data
-        _data.image_data = vec![];
-        _data.first_screen = true;
+        // if handles the else, a message window saying no file, but the save button appears only when there is an image for now
         _ctx.window().close();
         _ctx.new_window(WindowDesc::new(build_ui())
             .title("Screen grabbing Utility")
@@ -201,15 +217,26 @@ fn build_path_dialog() -> impl Widget<GrabData> {
     let path_label = Label::dynamic(|data: &GrabData, _env: &_| "Current Path: ".to_owned() + data.save_path.to_str().unwrap() );
 
     let change_path_button = Button::new("📁").on_click(|ctx, data: &mut GrabData, _env| {
-        let result = nfd::open_pick_folder(Some(data.save_path.to_str().unwrap())).ok().unwrap();
+        let result = FileDialog::new()
+            .set_location(data.save_path.to_str().unwrap())
+            .show_open_single_dir();
         match result {
-            nfd::Response::Okay(path) => {
-                data.trigger_ui = !data.trigger_ui;
-                data.save_path = Path::new(path.as_str()).to_path_buf().into_boxed_path();
-            },
-            _ => (),
-        };
-        println!("{:?}",data.save_path);
+            Ok(opt_path) => {
+                match opt_path {
+                    Some(path) => {
+                        // set the new folder path and trigger ui refresh
+                        data.trigger_ui = !data.trigger_ui;
+                        data.save_path = path.into_boxed_path();
+                    }
+                    None => {
+                        println!("Dialog Cancelled");
+                    }
+                }
+            }
+            Err(_) => {
+                panic!("Error in Setting the Path");
+            }
+        }
     });
 
     let mut ui_row = Flex::row();
