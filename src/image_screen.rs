@@ -20,9 +20,7 @@ use rusttype::Font;
 use druid::{kurbo::Line, piet::StrokeStyle, kurbo::Shape, PaintCtx};
 use druid::Handled::No;
 use crate::constants::BORDER_WIDTH;
-
-//use ease::{Arrow, EaseType, Tweener};
-
+use std::f64::consts::PI;
 pub struct ScreenshotWidget;
 
 impl Widget<GrabData> for ScreenshotWidget {
@@ -263,7 +261,46 @@ impl Widget<GrabData> for ScreenshotWidget {
                             window_height = cropped_annotated_image.height();
                         },
                         Annotation::Arrow => {
+                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                                .expect("Failed to load image from memory");
+                            // draw line of arrow
+                            cropped_annotated_image = DynamicImage::from(
+                                draw_line_segment(&image,
+                                                  (data.positions[0].0 as f32, data.positions[0].1 as f32),
+                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
+                                                  Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+                            //direzione = endX - startX , endY - startY
+                            let direction = (data.positions[data.positions.len() - 1].0 - data.positions[0].0, data.positions[data.positions.len() - 1].1 - data.positions[0].1);
+                            //lunghezza = ipotenusa teorema di pitagora
+                            let arrow_length = ((direction.0.powi(2) + direction.1.powi(2)) as f64).sqrt();
+                                // angolo tra asseX e freccia
+                                let angle = (direction.1 as f64).atan2(direction.0 as f64);
+                                // lunghezza punta della freccia [settata ad un terzo]
+                                let arrow_tip = arrow_length/3.0;
 
+                                // Calcola punti della punta della freccia
+                                let arrow_x1 = data.positions[data.positions.len() - 1].0 as f64 - (direction.0 / arrow_length);
+                                let arrow_y1 = data.positions[data.positions.len() - 1].1 as f64 - (direction.1 / arrow_length);
+                                let arrow_x2 = arrow_x1 - arrow_tip * (angle + PI / 6.0).cos();
+                                let arrow_y2 = arrow_y1 - arrow_tip * (angle + PI / 6.0).sin();
+                                let arrow_x3 = arrow_x1 - arrow_tip * (angle - PI / 6.0).cos();
+                                let arrow_y3 = arrow_y1 - arrow_tip * (angle - PI / 6.0).sin();
+                            // segmento 1 punta freccia
+                            cropped_annotated_image = DynamicImage::from(
+                                    draw_line_segment(&cropped_annotated_image,
+                                                      (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
+                                                      (arrow_x2 as f32, arrow_y2 as f32),
+                                                      Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+                            // segmento 2 punta freccia
+                            cropped_annotated_image = DynamicImage::from(
+                                draw_line_segment(&cropped_annotated_image,
+                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
+                                                  (arrow_x3 as f32, arrow_y3 as f32),
+                                                  Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+                            // clear the vector
+                            data.positions = vec![];
+                            window_width = cropped_annotated_image.width();
+                            window_height = cropped_annotated_image.height();
                         },
                         Annotation::Text => {
                             // draw line
