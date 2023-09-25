@@ -98,7 +98,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                     min_y = (min_y2 as f64 * scale_factor_y) as i32;
                     max_y = (max_y2 as f64 * scale_factor_y) as i32;
                     //println!("minx {} maxx {} miny {} maxy {}",min_x,max_x,min_y,max_y);
-                    let image = screen.capture_area(min_x as i32, min_y as i32, (max_x - min_x) as u32, (max_y - min_y) as u32).unwrap();
+                    let image = screen.capture_area(min_x + BORDER_WIDTH as i32, min_y + BORDER_WIDTH as i32, (max_x - (min_x + 2*BORDER_WIDTH as i32)) as u32, (max_y - (min_y + 2*BORDER_WIDTH as i32)) as u32).unwrap();
                     let buffer = image.to_png(None).unwrap();
                     data.image_data = buffer;
                     // empty positions
