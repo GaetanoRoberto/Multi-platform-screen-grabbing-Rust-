@@ -21,7 +21,7 @@ pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize) {
     ctx.window().close();
     ctx.new_window(
         WindowDesc::new(
-            Flex::<GrabData>::row().with_child(ScreenshotWidget).background(Color::rgba(0.0,0.0,0.0, 0.05)))
+            Flex::<GrabData>::row().with_child(ScreenshotWidget).background(Color::rgba(0.0,0.0,0.0, OPACITY)))
             .show_titlebar(false)
             .transparent(true)
             .set_position((rect.x0,rect.y0))
