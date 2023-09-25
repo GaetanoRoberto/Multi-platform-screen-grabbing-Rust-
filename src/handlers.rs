@@ -3,7 +3,7 @@ use std::fs::File;
 use druid::{AppDelegate, commands, DelegateCtx, Env, Event, EventCtx, InternalEvent, Selector, TimerToken, Widget, WindowDesc, WindowState};
 use druid::widget::{Controller,Flex};
 use serde_json::to_writer;
-use crate::GrabData;
+use crate::{Annotation, GrabData};
 use crate::main_gui_building::{build_ui, start_screening};
 
 pub struct Delegate;
@@ -26,6 +26,8 @@ impl AppDelegate<GrabData> for Delegate {
             _data.positions = vec![];
             _data.scale_factor = 1.0;
             _data.image_data = vec![];
+            _data.set_hot_key = false;
+            _data.annotation = Annotation::None;
             let file = File::create("settings.json").unwrap();
             to_writer(file, _data).unwrap();
             // the event keep processing and the window is closed
@@ -56,7 +58,12 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                 if data.set_hot_key {
                     // capture and set the hotkey for screen grabbing
                     data.trigger_ui = !data.trigger_ui;
-                    data.hotkey.push(key_event.key.to_string());
+                    // avoid to add many times the same character if is being pressed
+                    if data.hotkey.is_empty() {
+                        data.hotkey.push(key_event.key.to_string());
+                    } else if data.hotkey.len() >= 1 && data.hotkey[data.hotkey.len()-1] != key_event.key.to_string() {
+                        data.hotkey.push(key_event.key.to_string());
+                    }
                 } else {
                     // check current combination of the hotkey
                     if data.hotkey[data.hotkey_sequence] == key_event.key.to_string() {

@@ -4,7 +4,7 @@ use std::fs;
 use std::fs::{create_dir_all, File};
 use std::io::Read;
 use std::path::Path;
-use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color as druidColor, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Point, Rect, Scale, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
+use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Point, Rect, RenderContext, Scale, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
@@ -15,8 +15,12 @@ use imageproc::drawing::{Canvas, draw_cross, draw_filled_rect, draw_hollow_circl
 use serde_json::{from_reader, to_writer};
 use crate::{main_gui_building::build_ui, constants, GrabData, Annotation};
 use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
-use crate::main_gui_building::create_save_cancel_buttons;
+use crate::main_gui_building::{create_annotation_buttons, create_save_cancel_buttons};
 use rusttype::Font;
+use druid::{kurbo::Line, piet::StrokeStyle, kurbo::Shape, PaintCtx};
+use druid::Handled::No;
+use crate::constants::BORDER_WIDTH;
+
 //use ease::{Arrow, EaseType, Tweener};
 
 pub struct ScreenshotWidget;
@@ -56,10 +60,12 @@ impl Widget<GrabData> for ScreenshotWidget {
                 centered_pos.y = centered_pos.y / data.scale_factor;
                 data.positions.push(<(f64, f64)>::from(centered_pos));
             }
+            ctx.request_paint();
         }
 
         if let Event::MouseUp(_) = event {
             data.press = false;
+            ctx.request_paint();
             //println!("{:?}",data.positions);
             if !data.positions.is_empty() {
                 let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
@@ -74,36 +80,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                     |(max_x, min_y), (x, y)| (max_x.max(x), min_y.min(y)),
                 );*/
 
-                let (mut min_x2,mut max_y2) = (0.0,0.0);
-                let (mut max_x2,mut min_y2) = (0.0,0.0);
-                let (p1x,p1y) = data.positions[0];
-                let (p2x,p2y) = data.positions[data.positions.len() - 1];
-
-                if p1x < p2x && p1y < p2y {
-                    // p1 smaller than p2
-                    min_x2 = p1x;
-                    min_y2 = p1y;
-                    max_x2 = p2x;
-                    max_y2 = p2y;
-                } else if p1x > p2x && p1y > p2y {
-                    // p2 smaller than p1
-                    min_x2 = p2x;
-                    min_y2 = p2y;
-                    max_x2 = p1x;
-                    max_y2 = p1y;
-                } else if p1x < p2x && p1y > p2y {
-                    // partenza in basso a sx
-                    min_x2 = p1x;
-                    min_y2 = p2y;
-                    max_x2 = p2x;
-                    max_y2 = p1y;
-                } else if p1x > p2x && p1y < p2y {
-                    // partenza in alto a dx
-                    min_x2 = p2x;
-                    min_y2 = p1y;
-                    max_x2 = p1x;
-                    max_y2 = p2y;
-                }
+                let (min_x2,min_y2,max_x2,max_y2) = make_rectangle_from_points(data).unwrap();
 
                 let scale_factor_x = ctx.scale().x();
                 let scale_factor_y = ctx.scale().y();
@@ -194,7 +171,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                             let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
                                 .expect("Failed to load image from memory");
 
-                            println!("{:?}",data.color);
                             // draw line with first and last position, then clear the vector
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&image,
@@ -407,268 +383,62 @@ impl Widget<GrabData> for ScreenshotWidget {
     }
 
     fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: &GrabData, env: &druid::Env) {
+        let result = make_rectangle_from_points(data);
+        match result {
+            Some((x0,y0,x1,y1)) => {
+                let mut rect = Rect::new(x0, y0, x1, y1);
+                let mut border_color;
+
+                rect = Rect::new(x0 * data.scale_factor, y0 * data.scale_factor, x1 * data.scale_factor, y1 * data.scale_factor);
+                border_color = Color::rgb(255.0, 255.0, 255.0); // White border color
+
+                // Create a shape representing the rectangle
+                let rect_shape = Rect::from_origin_size(rect.origin(), rect.size());
+
+                // Draw the border of the rectangle
+                paint_ctx.stroke(rect_shape, &border_color, BORDER_WIDTH);
+                //paint_ctx.fill(rect_shape, &Color::rgba8(255, 255, 255, 0));
+            }
+            None => { }
+        }
     }
 }
 
-fn create_annotation_buttons() -> impl Widget<GrabData> {
-    let mut ui_row1 = Flex::row();
-    let mut ui_row2 = Flex::row();
-    let file = File::open("settings.json").unwrap();
-    let data: GrabData = from_reader(file).unwrap();
-    // beizer curve ellisse
+fn make_rectangle_from_points(data: &GrabData ) -> Option<(f64,f64,f64,f64)> {
+    if data.positions.is_empty() {
+        return None;
+    }
+    let (mut min_x,mut max_y) = (0.0,0.0);
+    let (mut max_x,mut min_y) = (0.0,0.0);
+    let (p1x,p1y) = data.positions[0];
+    let (p2x,p2y) = data.positions[data.positions.len() - 1];
 
-    ui_row1.add_flex_child(Button::new("✂").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::None;
-    }), 1.0);
-    ui_row1.add_default_spacer();
-    ui_row1.add_flex_child(Button::new("◯").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::Circle;
-    }),1.0);
-    ui_row1.add_default_spacer();
-    ui_row1.add_flex_child(Button::new("╱").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::Line;
-    }), 1.0);
-    ui_row1.add_default_spacer();
-    ui_row1.add_flex_child(Button::new("✖").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::Cross;
-    }), 1.0);
-    ui_row1.add_default_spacer();
-    ui_row1.add_flex_child(Button::new("▢").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::Rectangle;
-    }), 1.0);
-    ui_row1.add_default_spacer();
+    if p1x < p2x && p1y < p2y {
+        // p1 smaller than p2
+        min_x = p1x;
+        min_y = p1y;
+        max_x = p2x;
+        max_y = p2y;
+    } else if p1x > p2x && p1y > p2y {
+        // p2 smaller than p1
+        min_x = p2x;
+        min_y = p2y;
+        max_x = p1x;
+        max_y = p1y;
+    } else if p1x < p2x && p1y > p2y {
+        // partenza in basso a sx
+        min_x = p1x;
+        min_y = p2y;
+        max_x = p2x;
+        max_y = p1y;
+    } else if p1x > p2x && p1y < p2y {
+        // partenza in alto a dx
+        min_x = p2x;
+        min_y = p1y;
+        max_x = p1x;
+        max_y = p2y;
+    }
 
-
-    ui_row2.add_flex_child(Button::new("〜").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::FreeLine;
-    }), 1.0);
-    ui_row2.add_default_spacer();
-    ui_row2.add_flex_child(Button::new("⇗").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::Arrow;
-    }), 1.0);
-    ui_row2.add_default_spacer();
-    ui_row2.add_flex_child(Button::new("A").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::Text;
-    }), 1.0);
-    ui_row2.add_default_spacer();
-    ui_row2.add_flex_child(Button::new("💄").on_click(|ctx, data: &mut GrabData, _env| {
-        data.annotation = Annotation::Highlighter;
-    }), 1.0);
-    ui_row2.add_default_spacer();
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3))).on_click(|ctx, data: &mut GrabData, _env| {
-        //data.annotation = Annotation::Circle;
-        ctx.new_sub_window(WindowConfig::default().window_size((100.0,100.0)).show_titlebar(false), create_color_buttons(), data.clone(), _env.clone());
-    }), 1.0);
-
-        /*let r = app.window_rect();
-        let mut tweener = Tweener::new();
-        // let mut tweener: Tweener<T, geom::scalar::Default> = Default::default();
-
-        for r in r.subdivisions_iter() {
-            for r in r.subdivisions_iter() {
-                for r in r.subdivisions_iter() {
-                    for r in r.subdivisions_iter() {
-                        for r in r.subdivisions_iter() {
-                            let start = r.xy();
-                            let end = start + pt2(1.0, 1.0);
-                            tweener.register(Arrow { start, end }, Arrow { start, end });
-                        }
-                    }
-                }
-            }
-        }*/
-    Flex::column().with_child(ui_row1).with_child(ui_row2)
+    Some((min_x,min_y,max_x,max_y))
 }
 
-fn create_color_buttons() -> impl Widget<GrabData> {
-    // 12 colors 4 x 3
-    let mut ui_col = Flex::column();
-    let mut ui_row1 = Flex::row();
-    let mut ui_row2 = Flex::row();
-    let mut ui_row3 = Flex::row();
-
-    // giallo verde blu viola rosso arancione rosa nero bianco marrone grigio magenta
-    let orange: (u8, u8, u8, u8) = (255, 165, 0, 255);
-    let pink : (u8, u8, u8, u8) = (255, 192, 203, 255);
-    let brown : (u8, u8, u8, u8) = (139, 69, 19, 255);
-
-    // giallo verde blu viola
-    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::YELLOW.as_rgba8().0,
-            druidColor::YELLOW.as_rgba8().1,
-            druidColor::YELLOW.as_rgba8().2,
-            druidColor::YELLOW.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::YELLOW.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::GREEN.as_rgba8().0,
-            druidColor::GREEN.as_rgba8().1,
-            druidColor::GREEN.as_rgba8().2,
-            druidColor::GREEN.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::GREEN.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::BLUE.as_rgba8().0,
-            druidColor::BLUE.as_rgba8().1,
-            druidColor::BLUE.as_rgba8().2,
-            druidColor::BLUE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::BLUE.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::PURPLE.as_rgba8().0,
-            druidColor::PURPLE.as_rgba8().1,
-            druidColor::PURPLE.as_rgba8().2,
-            druidColor::PURPLE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::PURPLE.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    // rosso arancione rosa nero
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::RED.as_rgba8().0,
-            druidColor::RED.as_rgba8().1,
-            druidColor::RED.as_rgba8().2,
-            druidColor::RED.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::RED.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            orange.0,
-            orange.1,
-            orange.2,
-            orange.3))).on_click(move |ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = orange;
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            pink.0,
-            pink.1,
-            pink.2,
-            pink.3))).on_click(move |ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = pink;
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::BLACK.as_rgba8().0,
-            druidColor::BLACK.as_rgba8().1,
-            druidColor::BLACK.as_rgba8().2,
-            druidColor::BLACK.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::BLACK.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    // bianco marrone grigio magenta
-    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::WHITE.as_rgba8().0,
-            druidColor::WHITE.as_rgba8().1,
-            druidColor::WHITE.as_rgba8().2,
-            druidColor::WHITE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::WHITE.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            brown.0,
-            brown.1,
-            brown.2,
-            brown.3))).on_click(move |ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = brown;
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::GRAY.as_rgba8().0,
-            druidColor::GRAY.as_rgba8().1,
-            druidColor::GRAY.as_rgba8().2,
-            druidColor::GRAY.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::GRAY.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            druidColor::FUCHSIA.as_rgba8().0,
-            druidColor::FUCHSIA.as_rgba8().1,
-            druidColor::FUCHSIA.as_rgba8().2,
-            druidColor::FUCHSIA.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = druidColor::FUCHSIA.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_col.add_flex_child(ui_row1, 1.0);
-    ui_col.add_default_spacer();
-    ui_col.add_flex_child(ui_row2, 1.0);
-    ui_col.add_default_spacer();
-    ui_col.add_flex_child(ui_row3, 1.0);
-    ui_col.add_default_spacer();
-
-    ui_col
-}

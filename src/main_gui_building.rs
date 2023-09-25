@@ -3,12 +3,12 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::time::Duration;
 use druid::widget::{Button, Controller, Flex, Label, TextBox, ValueTextBox};
-use druid::{Color, Command, Env, Event, EventCtx, KbKey, Selector, Size, Widget, WidgetExt, WindowDesc};
+use druid::{Color, Command, Env, Event, EventCtx, KbKey, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid_widget_nursery::{DropdownSelect, WidgetExt as OtherWidgetExt};
 use screenshots::Screen;
-use serde_json::from_reader;
-use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH,MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
-use crate::GrabData;
+use serde_json::{from_reader, to_writer};
+use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT, OPACITY};
+use crate::{Annotation, GrabData};
 use crate::image_screen::ScreenshotWidget;
 use crate::handlers::{Enter, NumericTextBoxController};
 use crate::input_field::PositiveNumberFormatter;
@@ -21,7 +21,7 @@ pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize) {
     ctx.window().close();
     ctx.new_window(
         WindowDesc::new(
-            Flex::<GrabData>::row().with_child(ScreenshotWidget))
+            Flex::<GrabData>::row().with_child(ScreenshotWidget).background(Color::rgba(0.0,0.0,0.0, 0.05)))
             .show_titlebar(false)
             .transparent(true)
             .set_position((rect.x0,rect.y0))
@@ -283,6 +283,252 @@ fn create_timer_ui() -> impl Widget<GrabData> {
     ui_row.add_flex_child(start_timer_btn, 1.0);
 
     Flex::column().with_child(ui_row).with_child(error_label).controller(NumericTextBoxController)
+}
+
+pub fn create_annotation_buttons() -> impl Widget<GrabData> {
+    let mut ui_row1 = Flex::row();
+    let mut ui_row2 = Flex::row();
+    let file = File::open("settings.json").unwrap();
+    let data: GrabData = from_reader(file).unwrap();
+    // beizer curve ellisse
+
+    ui_row1.add_flex_child(Button::new("✂").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::None;
+    }), 1.0);
+    ui_row1.add_default_spacer();
+    ui_row1.add_flex_child(Button::new("◯").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Circle;
+    }),1.0);
+    ui_row1.add_default_spacer();
+    ui_row1.add_flex_child(Button::new("╱").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Line;
+    }), 1.0);
+    ui_row1.add_default_spacer();
+    ui_row1.add_flex_child(Button::new("✖").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Cross;
+    }), 1.0);
+    ui_row1.add_default_spacer();
+    ui_row1.add_flex_child(Button::new("▢").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Rectangle;
+    }), 1.0);
+    ui_row1.add_default_spacer();
+
+
+    ui_row2.add_flex_child(Button::new("〜").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::FreeLine;
+    }), 1.0);
+    ui_row2.add_default_spacer();
+    ui_row2.add_flex_child(Button::new("⇗").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Arrow;
+    }), 1.0);
+    ui_row2.add_default_spacer();
+    ui_row2.add_flex_child(Button::new("A").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Text;
+    }), 1.0);
+    ui_row2.add_default_spacer();
+    ui_row2.add_flex_child(Button::new("💄").on_click(|ctx, data: &mut GrabData, _env| {
+        data.annotation = Annotation::Highlighter;
+    }), 1.0);
+    ui_row2.add_default_spacer();
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3))).on_click(|ctx, data: &mut GrabData, _env| {
+        //data.annotation = Annotation::Circle;
+        ctx.new_sub_window(WindowConfig::default().window_size((100.0,100.0)).show_titlebar(false), create_color_buttons(), data.clone(), _env.clone());
+    }), 1.0);
+
+    Flex::column().with_child(ui_row1).with_child(ui_row2)
+}
+
+pub fn create_color_buttons() -> impl Widget<GrabData> {
+    // 12 colors 4 x 3
+    let mut ui_col = Flex::column();
+    let mut ui_row1 = Flex::row();
+    let mut ui_row2 = Flex::row();
+    let mut ui_row3 = Flex::row();
+
+    // giallo verde blu viola rosso arancione rosa nero bianco marrone grigio magenta
+    let orange: (u8, u8, u8, u8) = (255, 165, 0, 255);
+    let pink : (u8, u8, u8, u8) = (255, 192, 203, 255);
+    let brown : (u8, u8, u8, u8) = (139, 69, 19, 255);
+
+    // giallo verde blu viola
+    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::YELLOW.as_rgba8().0,
+            Color::YELLOW.as_rgba8().1,
+            Color::YELLOW.as_rgba8().2,
+            Color::YELLOW.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::YELLOW.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::GREEN.as_rgba8().0,
+            Color::GREEN.as_rgba8().1,
+            Color::GREEN.as_rgba8().2,
+            Color::GREEN.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::GREEN.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::BLUE.as_rgba8().0,
+            Color::BLUE.as_rgba8().1,
+            Color::BLUE.as_rgba8().2,
+            Color::BLUE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::BLUE.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::PURPLE.as_rgba8().0,
+            Color::PURPLE.as_rgba8().1,
+            Color::PURPLE.as_rgba8().2,
+            Color::PURPLE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::PURPLE.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    // rosso arancione rosa nero
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::RED.as_rgba8().0,
+            Color::RED.as_rgba8().1,
+            Color::RED.as_rgba8().2,
+            Color::RED.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::RED.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            orange.0,
+            orange.1,
+            orange.2,
+            orange.3))).on_click(move |ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = orange;
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            pink.0,
+            pink.1,
+            pink.2,
+            pink.3))).on_click(move |ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = pink;
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::BLACK.as_rgba8().0,
+            Color::BLACK.as_rgba8().1,
+            Color::BLACK.as_rgba8().2,
+            Color::BLACK.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::BLACK.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    // bianco marrone grigio magenta
+    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::WHITE.as_rgba8().0,
+            Color::WHITE.as_rgba8().1,
+            Color::WHITE.as_rgba8().2,
+            Color::WHITE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::WHITE.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            brown.0,
+            brown.1,
+            brown.2,
+            brown.3))).on_click(move |ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = brown;
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::GRAY.as_rgba8().0,
+            Color::GRAY.as_rgba8().1,
+            Color::GRAY.as_rgba8().2,
+            Color::GRAY.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::GRAY.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
+        Color::rgba8(
+            Color::FUCHSIA.as_rgba8().0,
+            Color::FUCHSIA.as_rgba8().1,
+            Color::FUCHSIA.as_rgba8().2,
+            Color::FUCHSIA.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+
+        // change the color and save
+        data.color = Color::FUCHSIA.as_rgba8();
+        let file = File::create("settings.json").unwrap();
+        to_writer(file, data).unwrap();
+        ctx.window().close();
+    }), 1.0);
+
+    ui_col.add_flex_child(ui_row1, 1.0);
+    ui_col.add_default_spacer();
+    ui_col.add_flex_child(ui_row2, 1.0);
+    ui_col.add_default_spacer();
+    ui_col.add_flex_child(ui_row3, 1.0);
+    ui_col.add_default_spacer();
+
+    ui_col
 }
 
 pub(crate) fn build_ui() -> impl Widget<GrabData> {
