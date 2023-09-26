@@ -21,6 +21,9 @@ use druid::{kurbo::Line, piet::StrokeStyle, kurbo::Shape, PaintCtx};
 use druid::Handled::No;
 use crate::constants::BORDER_WIDTH;
 use std::f64::consts::PI;
+use druid::kurbo::Circle;
+use serde_json::error::Category::Data;
+
 pub struct ScreenshotWidget;
 
 impl Widget<GrabData> for ScreenshotWidget {
@@ -56,6 +59,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                 let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
                 centered_pos.x = centered_pos.x / data.scale_factor;
                 centered_pos.y = centered_pos.y / data.scale_factor;
+                println!("{}",centered_pos);
                 data.positions.push(<(f64, f64)>::from(centered_pos));
             }
             ctx.request_paint();
@@ -67,16 +71,6 @@ impl Widget<GrabData> for ScreenshotWidget {
             //println!("{:?}",data.positions);
             if !data.positions.is_empty() {
                 let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
-
-                /*let (min_x2, max_y2) = data.positions.iter().cloned().fold(
-                    (f64::INFINITY, f64::NEG_INFINITY),
-                    |(min_x, max_y), (x, y)| (min_x.min(x), max_y.max(y)),
-                );
-
-                let (max_x2, min_y2) = data.positions.iter().cloned().fold(
-                    (f64::NEG_INFINITY, f64::INFINITY),
-                    |(max_x, min_y), (x, y)| (max_x.max(x), min_y.min(y)),
-                );*/
 
                 let (min_x2,min_y2,max_x2,max_y2) = make_rectangle_from_points(data).unwrap();
 
@@ -128,6 +122,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     .with_child(create_save_cancel_buttons())).set_position((rect.x0,rect.y0))
                                     .window_size(Size::new( 3.0 * dynamic_image.width() as f64 * data.scale_factor,(3.0 * dynamic_image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
                                     .resizable(false));
+
+                                data.positions = vec![];
                                 return;
                             }
                             cropped_annotated_image = dynamic_image.crop(
@@ -148,11 +144,8 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                         },
                         Annotation::Circle => {
-                            // compute the center
-                            let center_x = (max_x - min_x) as f64 / 2.0 + min_x as f64;
-                            let center_y = (max_y - min_y) as f64 / 2.0 + min_y as f64;
-                            let radius = (((max_x - min_x).pow(2) + (max_y - min_y).pow(2)) as f64).sqrt()/ 2.0;
-
+                            // compute the center and the radius
+                            let (center_x,center_y,radius) = compute_circle_center_radius(min_x, min_y,max_x,max_y);
 
                             let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
                                 .expect("Failed to load image from memory");
@@ -170,10 +163,13 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 .expect("Failed to load image from memory");
 
                             // draw line with first and last position, then clear the vector
+                            let p0 = (data.positions[0].0, data.positions[0].1);
+                            let p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&image,
-                                                  (data.positions[0].0 as f32, data.positions[0].1 as f32),
-                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
+                                                  (p0.0 as f32, p0.1 as f32),
+                                                  (p1.0 as f32, p1.1 as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
                             // clear the vector
                             data.positions = vec![];
@@ -185,18 +181,24 @@ impl Widget<GrabData> for ScreenshotWidget {
                             let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
                                 .expect("Failed to load image from memory");
 
+                            let line0_p0 = (data.positions[0].0, data.positions[0].1);
+                            let line0_p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+
                             // draw line with first and last position, then clear the vector
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&image,
-                                                  (data.positions[0].0 as f32, data.positions[0].1 as f32),
-                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
+                                                  (line0_p0.0 as f32, line0_p0.1 as f32),
+                                                  (line0_p1.0 as f32, line0_p1.1 as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+
+                            let line1_p0 = (data.positions[0].0, data.positions[data.positions.len()-1].1);
+                            let line1_p1 = (data.positions[data.positions.len()-1].0,data.positions[0].1);
 
                             // draw line with first and last position, then clear the vector
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&cropped_annotated_image,
-                                                  (data.positions[0].0 as f32, data.positions[data.positions.len()-1].1 as f32),
-                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[0].1 as f32),
+                                                  (line1_p0.0 as f32, line1_p0.1 as f32),
+                                                  (line1_p1.0 as f32, line1_p1.1 as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
                             // clear the vector
@@ -224,10 +226,13 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                             // draw line with first and last position, then clear the vector
                             for pos_index in 0..(data.positions.len()-1) {
+                                let line_p0 = (data.positions[pos_index].0, data.positions[pos_index].1);
+                                let line_p1 = (data.positions[pos_index+1].0, data.positions[pos_index+1].1);
+
                                 cropped_annotated_image = DynamicImage::from(
                                     draw_line_segment(&cropped_annotated_image,
-                                                      (data.positions[pos_index].0 as f32, data.positions[pos_index].1 as f32),
-                                                      (data.positions[pos_index+1].0 as f32, data.positions[pos_index+1].1 as f32),
+                                                      (line_p0.0 as f32, line_p0.1 as f32),
+                                                      (line_p1.0 as f32, line_p1.1 as f32),
                                                       Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
                             }
 
@@ -263,44 +268,36 @@ impl Widget<GrabData> for ScreenshotWidget {
                         Annotation::Arrow => {
                             let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
                                 .expect("Failed to load image from memory");
-                            // draw line of arrow
-                            cropped_annotated_image = DynamicImage::from(
-                                draw_line_segment(&image,
-                                                  (data.positions[0].0 as f32, data.positions[0].1 as f32),
-                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
-                                                  Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
-                            //direzione = endX - startX , endY - startY
-                            let direction = (data.positions[data.positions.len() - 1].0 - data.positions[0].0, data.positions[data.positions.len() - 1].1 - data.positions[0].1);
-                            //lunghezza = ipotenusa teorema di pitagora
-                            let arrow_length = ((direction.0.powi(2) + direction.1.powi(2)) as f64).sqrt();
-                                // angolo tra asseX e freccia
-                                let angle = (direction.1 as f64).atan2(direction.0 as f64);
-                                // lunghezza punta della freccia [settata ad un terzo]
-                                let arrow_tip = arrow_length/3.0;
 
-                                // Calcola punti della punta della freccia
-                                let arrow_x1 = data.positions[data.positions.len() - 1].0 as f64 - (direction.0 / arrow_length);
-                                let arrow_y1 = data.positions[data.positions.len() - 1].1 as f64 - (direction.1 / arrow_length);
-                                let arrow_x2 = arrow_x1 - arrow_tip * (angle + PI / 6.0).cos();
-                                let arrow_y2 = arrow_y1 - arrow_tip * (angle + PI / 6.0).sin();
-                                let arrow_x3 = arrow_x1 - arrow_tip * (angle - PI / 6.0).cos();
-                                let arrow_y3 = arrow_y1 - arrow_tip * (angle - PI / 6.0).sin();
-                            // segmento 1 punta freccia
-                            cropped_annotated_image = DynamicImage::from(
-                                    draw_line_segment(&cropped_annotated_image,
-                                                      (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
-                                                      (arrow_x2 as f32, arrow_y2 as f32),
-                                                      Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
-                            // segmento 2 punta freccia
-                            cropped_annotated_image = DynamicImage::from(
-                                draw_line_segment(&cropped_annotated_image,
-                                                  (data.positions[data.positions.len()-1].0 as f32, data.positions[data.positions.len()-1].1 as f32),
-                                                  (arrow_x3 as f32, arrow_y3 as f32),
-                                                  Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
-                            // clear the vector
-                            data.positions = vec![];
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
+                            let result = compute_arrow_points(data);
+                            match result {
+                                Some(((main_line_p0,main_line_p1),(arrow_l0_p0, arrow_l0_p1),(arrow_l1_p0, arrow_l1_p1))) => {
+                                    // draw line of arrow
+                                    cropped_annotated_image = DynamicImage::from(
+                                        draw_line_segment(&image,
+                                                          (main_line_p0.x as f32, main_line_p0.y as f32),
+                                                          (main_line_p1.x as f32, main_line_p1.y as f32),
+                                                          Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+
+                                    // segmento 1 punta freccia
+                                    cropped_annotated_image = DynamicImage::from(
+                                        draw_line_segment(&cropped_annotated_image,
+                                                          (arrow_l0_p0.x as f32, arrow_l0_p0.y as f32),
+                                                          (arrow_l0_p1.x as f32, arrow_l0_p1.y as f32),
+                                                          Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+                                    // segmento 2 punta freccia
+                                    cropped_annotated_image = DynamicImage::from(
+                                        draw_line_segment(&cropped_annotated_image,
+                                                          (arrow_l1_p0.x as f32, arrow_l1_p0.y as f32),
+                                                          (arrow_l1_p1.x as f32, arrow_l1_p1.y as f32),
+                                                          Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
+                                    // clear the vector
+                                    data.positions = vec![];
+                                    window_width = cropped_annotated_image.width();
+                                    window_height = cropped_annotated_image.height();
+                                }
+                                None => {}
+                            }
                         },
                         Annotation::Text => {
                             // draw line
@@ -420,23 +417,107 @@ impl Widget<GrabData> for ScreenshotWidget {
     }
 
     fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: &GrabData, env: &druid::Env) {
-        let result = make_rectangle_from_points(data);
-        match result {
-            Some((x0,y0,x1,y1)) => {
-                let mut rect = Rect::new(x0, y0, x1, y1);
-                let mut border_color;
+        // border color of all the paintings
+        let border_color = Color::rgb(255.0, 255.0, 255.0); // White border color
 
-                rect = Rect::new(x0 * data.scale_factor, y0 * data.scale_factor, x1 * data.scale_factor, y1 * data.scale_factor);
-                border_color = Color::rgb(255.0, 255.0, 255.0); // White border color
+        match data.annotation {
+            Annotation::None | Annotation::Rectangle => {
+                let result = make_rectangle_from_points(data);
+                match result {
+                    Some((x0,y0,x1,y1)) => {
+                        let scaled_x0 = x0 * data.scale_factor;
+                        let scaled_y0 = y0 * data.scale_factor;
+                        let scaled_x1 = x1 * data.scale_factor;
+                        let scaled_y1 = y1 * data.scale_factor;
 
-                // Create a shape representing the rectangle
-                let rect_shape = Rect::from_origin_size(rect.origin(), rect.size());
+                        // Create a shape representing the rectangle in the widget's coordinate system
+                        let rect_shape = Rect::new(scaled_x0, scaled_y0, scaled_x1, scaled_y1);
 
-                // Draw the border of the rectangle
-                paint_ctx.stroke(rect_shape, &border_color, BORDER_WIDTH);
-                //paint_ctx.fill(rect_shape, &Color::rgba8(255, 255, 255, 0));
+                        paint_ctx.stroke(rect_shape, &border_color, BORDER_WIDTH);
+                    }
+                    None => { }
+                }
             }
-            None => { }
+            Annotation::Circle => {
+                let result = make_rectangle_from_points(data);
+                match result {
+                    Some((min_x,min_y,max_x,max_y)) => {
+                        // compute the center and the radius
+                        let (center_x,center_y,radius) = compute_circle_center_radius(min_x as i32, min_y as i32,max_x as i32,max_y as i32);
+
+                        // Create a shape representing the circle in the widget's coordinate system
+                        let circle_shape = Circle::new((center_x,center_y),radius);
+
+                        paint_ctx.stroke(circle_shape, &border_color, BORDER_WIDTH);
+                    }
+                    None => {}
+                }
+            }
+            Annotation::Line => {
+                if !data.positions.is_empty() {
+                    let p0 = (data.positions[0].0, data.positions[0].1);
+                    let p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+
+                    let line_shape = Line::new(p0,p1);
+
+                    // Create a line in the widget's coordinate system
+                    paint_ctx.stroke(line_shape, &border_color, BORDER_WIDTH);
+                }
+            }
+            Annotation::Cross => {
+                if !data.positions.is_empty() {
+                    let line0_p0 = (data.positions[0].0, data.positions[0].1);
+                    let line0_p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+
+                    let line0_shape = Line::new(line0_p0,line0_p1);
+
+                    let line1_p0 = (data.positions[0].0, data.positions[data.positions.len()-1].1);
+                    let line1_p1 = (data.positions[data.positions.len()-1].0,data.positions[0].1);
+
+                    let line1_shape = Line::new(line1_p0,line1_p1);
+
+                    // Create a cross in the widget's coordinate system
+                    paint_ctx.stroke(line0_shape, &border_color, BORDER_WIDTH);
+                    paint_ctx.stroke(line1_shape, &border_color, BORDER_WIDTH);
+                }
+            }
+            Annotation::FreeLine => {
+                if !data.positions.is_empty() {
+                    // draw line with first and last position, then clear the vector
+                    for pos_index in 0..(data.positions.len()-1) {
+                        let line_p0 = (data.positions[pos_index].0, data.positions[pos_index].1);
+                        let line_p1 = (data.positions[pos_index+1].0, data.positions[pos_index+1].1);
+
+                        let line_shape = Line::new(line_p0,line_p1);
+
+                        // Create a line in the widget's coordinate system
+                        paint_ctx.stroke(line_shape, &border_color, BORDER_WIDTH);
+                    }
+                }
+            }
+            Annotation::Highlighter => {}
+            Annotation::Arrow => {
+                let result = compute_arrow_points(data);
+                match result {
+                    Some(((main_line_p0,main_line_p1),(arrow_l0_p0, arrow_l0_p1),(arrow_l1_p0, arrow_l1_p1))) => {
+                        let line_shape = Line::new(main_line_p0,main_line_p1);
+                        // Create a line in the widget's coordinate system
+                        paint_ctx.stroke(line_shape, &border_color, BORDER_WIDTH);
+
+                        // segmento 1 punta freccia
+                        let punta1_shape = Line::new(arrow_l0_p0, arrow_l0_p1);
+                        // Create a line in the widget's coordinate system
+                        paint_ctx.stroke(punta1_shape, &border_color, BORDER_WIDTH);
+
+                        // segmento 2 punta freccia
+                        let punta2_shape = Line::new(arrow_l1_p0, arrow_l1_p1);
+                        // Create a line in the widget's coordinate system
+                        paint_ctx.stroke(punta2_shape, &border_color, BORDER_WIDTH);
+                    }
+                    None => {}
+                }
+            }
+            Annotation::Text => {}
         }
     }
 }
@@ -479,3 +560,40 @@ fn make_rectangle_from_points(data: &GrabData ) -> Option<(f64,f64,f64,f64)> {
     Some((min_x,min_y,max_x,max_y))
 }
 
+fn compute_circle_center_radius(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> (f64,f64,f64) {
+    // compute the center
+    let center_x = (max_x - min_x) as f64 / 2.0 + min_x as f64;
+    let center_y = (max_y - min_y) as f64 / 2.0 + min_y as f64;
+    let radius = (((max_x - min_x).pow(2) + (max_y - min_y).pow(2)) as f64).sqrt()/ 2.0;
+
+    (center_x,center_y,radius)
+}
+
+fn compute_arrow_points(data: &GrabData) -> Option<((Point,Point),(Point,Point),(Point,Point))> {
+    if data.positions.is_empty() {
+        return None;
+    }
+    let main_line_p0 = Point::new(data.positions[0].0, data.positions[0].1);
+    let main_line_p1 = Point::new(data.positions[data.positions.len()-1].0, data.positions[data.positions.len()-1].1);
+
+    //direzione = endX - startX , endY - startY
+    let direction = Point::new(data.positions[data.positions.len() - 1].0 - data.positions[0].0, data.positions[data.positions.len() - 1].1 - data.positions[0].1);
+    //lunghezza = ipotenusa teorema di pitagora
+    let arrow_length = ((direction.x.powi(2) + direction.y.powi(2)) as f64).sqrt();
+    // angolo tra asseX e freccia
+    let angle = (direction.y as f64).atan2(direction.x as f64);
+    // lunghezza punta della freccia [settata ad un terzo]
+    let arrow_tip = arrow_length/3.0;
+
+    // Calcola punti della punta della freccia
+    let arrow_x1 = data.positions[data.positions.len() - 1].0 - (direction.x / arrow_length);
+    let arrow_y1 = data.positions[data.positions.len() - 1].1 - (direction.y / arrow_length);
+
+    let arrow_l0_p0 = main_line_p1;
+    let arrow_l0_p1 = Point::new(arrow_x1 - arrow_tip * (angle + PI / 6.0).cos(),arrow_y1 - arrow_tip * (angle + PI / 6.0).sin());
+    let arrow_l1_p0 = main_line_p1;
+    let arrow_l1_p1 = Point::new(arrow_x1 - arrow_tip * (angle - PI / 6.0).cos(),arrow_y1 - arrow_tip * (angle - PI / 6.0).sin());
+
+    // main line point couple, first line point couple, second line point couple
+    Some(((main_line_p0,main_line_p1),(arrow_l0_p0, arrow_l0_p1),(arrow_l1_p0, arrow_l1_p1)))
+}
