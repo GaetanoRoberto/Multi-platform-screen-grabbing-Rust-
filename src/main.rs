@@ -36,7 +36,7 @@ use crate::main_gui_building::build_ui;
 use crate::handlers::Delegate;
 use constants::{MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 enum Annotation {
     None,
     Circle,

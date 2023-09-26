@@ -22,6 +22,7 @@ use druid::Handled::No;
 use crate::constants::BORDER_WIDTH;
 use std::f64::consts::PI;
 use druid::kurbo::Circle;
+use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use serde_json::error::Category::Data;
 
 pub struct ScreenshotWidget;
@@ -155,7 +156,7 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                             window_width = cropped_annotated_image.width();
                             window_height = cropped_annotated_image.height();
-
+                            data.annotation = Annotation::None;
                         },
                         Annotation::Line => {
                             // draw line
@@ -175,6 +176,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             data.positions = vec![];
                             window_width = cropped_annotated_image.width();
                             window_height = cropped_annotated_image.height();
+                            data.annotation = Annotation::None;
                         },
                         Annotation::Cross => {
                             // draw cross through two lines
@@ -206,6 +208,7 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                             window_width = cropped_annotated_image.width();
                             window_height = cropped_annotated_image.height();
+                            data.annotation = Annotation::None;
                         },
                         Annotation::Rectangle => {
                             // draw rectangle
@@ -218,6 +221,7 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                             window_width = cropped_annotated_image.width();
                             window_height = cropped_annotated_image.height();
+                            data.annotation = Annotation::None;
                         },
                         Annotation::FreeLine => {
                             // draw free line
@@ -240,6 +244,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             data.positions = vec![];
                             window_width = cropped_annotated_image.width();
                             window_height = cropped_annotated_image.height();
+                            data.annotation = Annotation::None;
                         },
                         Annotation::Highlighter => {
                             // draw highliter
@@ -264,6 +269,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             data.positions = vec![];
                             window_width = cropped_annotated_image.width();
                             window_height = cropped_annotated_image.height();
+                            data.annotation = Annotation::None;
                         },
                         Annotation::Arrow => {
                             let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
@@ -295,6 +301,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     data.positions = vec![];
                                     window_width = cropped_annotated_image.width();
                                     window_height = cropped_annotated_image.height();
+                                    data.annotation = Annotation::None;
                                 }
                                 None => {}
                             }
@@ -317,6 +324,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             data.positions = vec![];
                             window_width = cropped_annotated_image.width();
                             window_height = cropped_annotated_image.height();
+                            data.annotation = Annotation::None;
                         },
                     }
 
@@ -417,8 +425,8 @@ impl Widget<GrabData> for ScreenshotWidget {
     }
 
     fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: &GrabData, env: &druid::Env) {
-        // border color of all the paintings
-        let border_color = Color::rgb(255.0, 255.0, 255.0); // White border color
+        // border color of the current selected color for all the paintings except the rectangle preview
+        let mut border_color = Color::rgb8(data.color.0, data.color.1, data.color.2); // White border color
 
         match data.annotation {
             Annotation::None | Annotation::Rectangle => {
@@ -432,7 +440,10 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                         // Create a shape representing the rectangle in the widget's coordinate system
                         let rect_shape = Rect::new(scaled_x0, scaled_y0, scaled_x1, scaled_y1);
-
+                        if data.annotation == Annotation::None {
+                            // override in white color, only for selection other cases the selected color at the beginning
+                            border_color = Color::rgb8(255, 255, 255); // White border color
+                        }
                         paint_ctx.stroke(rect_shape, &border_color, BORDER_WIDTH);
                     }
                     None => { }
