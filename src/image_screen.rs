@@ -15,7 +15,7 @@ use imageproc::drawing::{Canvas, draw_cross, draw_filled_rect, draw_hollow_circl
 use serde_json::{from_reader, to_writer};
 use crate::{main_gui_building::build_ui, constants, GrabData, Annotation};
 use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
-use crate::main_gui_building::{create_annotation_buttons, create_save_cancel_buttons};
+use crate::main_gui_building::{create_annotation_buttons, create_edit_window, create_edit_window_widgets, create_save_cancel_clipboard_buttons, create_selection_window};
 use rusttype::Font;
 use druid::{kurbo::Line, piet::StrokeStyle, kurbo::Shape, PaintCtx};
 use druid::Handled::No;
@@ -48,7 +48,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                 data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
             }
             if data.press && !data.first_screen {
-                let mut image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                let mut image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
                     .expect("Failed to load image from memory");
                 // Calculate the offset to center mouse positions in the Image
                 let widget_size = ctx.size();
@@ -93,17 +93,16 @@ impl Widget<GrabData> for ScreenshotWidget {
                     //println!("minx {} maxx {} miny {} maxy {}",min_x,max_x,min_y,max_y);
                     let image = screen.capture_area(min_x + BORDER_WIDTH as i32, min_y + BORDER_WIDTH as i32, (max_x - (min_x + 2*BORDER_WIDTH as i32)) as u32, (max_y - (min_y + 2*BORDER_WIDTH as i32)) as u32).unwrap();
                     let buffer = image.to_png(None).unwrap();
-                    data.image_data = buffer;
+                    data.image_data_old = buffer;
                     // empty positions
                     data.positions = vec![];
                 }
 
-                let mut dynamic_image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                let mut dynamic_image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
                     .expect("Failed to load image from memory");
                 let mut window_width= 0;
                 let mut window_height = 0;
                 let mut cropped_annotated_image = dynamic_image.clone();
-                let mut image_buf = ImageBuf::empty();
                 if !data.first_screen {
 
                     match data.annotation {
@@ -120,7 +119,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 ctx.window().close();
                                 ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop Further, choose if save the image as it is or undo:"))
                                     .with_child(Image::new(buffer))
-                                    .with_child(create_save_cancel_buttons())).set_position((rect.x0,rect.y0))
+                                    .with_child(create_save_cancel_clipboard_buttons())).set_position((rect.x0,rect.y0))
                                     .window_size(Size::new( 3.0 * dynamic_image.width() as f64 * data.scale_factor,(3.0 * dynamic_image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
                                     .resizable(false));
 
@@ -140,28 +139,20 @@ impl Widget<GrabData> for ScreenshotWidget {
                             }
                             cropped_annotated_image = cropped_annotated_image.resize((cropped_annotated_image.width() as f64 * data.scale_factor) as u32, (cropped_annotated_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
-
                         },
                         Annotation::Circle => {
                             // compute the center and the radius
                             let (center_x,center_y,radius) = compute_circle_center_radius(min_x, min_y,max_x,max_y);
 
-                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
-                                .expect("Failed to load image from memory");
+                            let image = load_image(data);
 
                             cropped_annotated_image = DynamicImage::from(draw_hollow_circle(&image, (center_x as i32, center_y as i32), radius as i32, Rgba([data.color.0,
                                 data.color.1, data.color.2, data.color.3])));
 
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
-                            data.annotation = Annotation::None;
                         },
                         Annotation::Line => {
                             // draw line
-                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
-                                .expect("Failed to load image from memory");
+                            let image = load_image(data);
 
                             // draw line with first and last position, then clear the vector
                             let p0 = (data.positions[0].0, data.positions[0].1);
@@ -172,16 +163,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                                                   (p0.0 as f32, p0.1 as f32),
                                                   (p1.0 as f32, p1.1 as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
-                            // clear the vector
-                            data.positions = vec![];
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
-                            data.annotation = Annotation::None;
+
                         },
                         Annotation::Cross => {
                             // draw cross through two lines
-                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
-                                .expect("Failed to load image from memory");
+                            let image = load_image(data);
 
                             let line0_p0 = (data.positions[0].0, data.positions[0].1);
                             let line0_p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
@@ -203,30 +189,19 @@ impl Widget<GrabData> for ScreenshotWidget {
                                                   (line1_p1.0 as f32, line1_p1.1 as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
-                            // clear the vector
-                            data.positions = vec![];
-
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
-                            data.annotation = Annotation::None;
                         },
                         Annotation::Rectangle => {
                             // draw rectangle
-                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
-                                .expect("Failed to load image from memory");
+                            let image = load_image(data);
 
                             let rectangle = imageproc::rect::Rect::at(min_x, min_y).of_size((max_x - min_x) as u32, (max_y - min_y) as u32);
                             cropped_annotated_image = DynamicImage::from(
                                 draw_hollow_rect(&image,rectangle,Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
-                            data.annotation = Annotation::None;
                         },
                         Annotation::FreeLine => {
                             // draw free line
-                            cropped_annotated_image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
-                                .expect("Failed to load image from memory");
+                            cropped_annotated_image = load_image(data);
 
                             // draw line with first and last position, then clear the vector
                             for pos_index in 0..(data.positions.len()-1) {
@@ -240,15 +215,10 @@ impl Widget<GrabData> for ScreenshotWidget {
                                                       Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
                             }
 
-                            // clear the vector
-                            data.positions = vec![];
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
-                            data.annotation = Annotation::None;
                         },
                         Annotation::Highlighter => {
                             // draw highliter
-                            cropped_annotated_image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                            cropped_annotated_image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
                                 .expect("Failed to load image from memory");
                             /*draw_line_segment(&cropped_annotated_image,
                                               (data.positions[pos_index].0 as f32, data.positions[pos_index].1 as f32),
@@ -265,15 +235,9 @@ impl Widget<GrabData> for ScreenshotWidget {
                                                  Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
                             }
 
-                            // clear the vector
-                            data.positions = vec![];
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
-                            data.annotation = Annotation::None;
                         },
                         Annotation::Arrow => {
-                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
-                                .expect("Failed to load image from memory");
+                            let image = load_image(data);
 
                             let result = compute_arrow_points(data);
                             match result {
@@ -297,18 +261,14 @@ impl Widget<GrabData> for ScreenshotWidget {
                                                           (arrow_l1_p0.x as f32, arrow_l1_p0.y as f32),
                                                           (arrow_l1_p1.x as f32, arrow_l1_p1.y as f32),
                                                           Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
-                                    // clear the vector
-                                    data.positions = vec![];
-                                    window_width = cropped_annotated_image.width();
-                                    window_height = cropped_annotated_image.height();
-                                    data.annotation = Annotation::None;
+
                                 }
                                 None => {}
                             }
                         },
                         Annotation::Text => {
-                            // draw line
-                            let image = load_from_memory_with_format(&data.image_data, image::ImageFormat::Png)
+                            // draw text
+                            /*let image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
                                 .expect("Failed to load image from memory");
 
                             let font_data: &[u8] = include_bytes!("../OpenSans-Semibold.ttf");
@@ -319,29 +279,21 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 draw_text(&image,
                                           Rgba([data.color.0, data.color.1, data.color.2, data.color.3]),
                                           data.positions[0].0 as i32, data.positions[0].1 as i32,
-                                          rusttype::Scale::uniform(20.0), &font, "prova"));
-                            // clear the vector
-                            data.positions = vec![];
-                            window_width = cropped_annotated_image.width();
-                            window_height = cropped_annotated_image.height();
-                            data.annotation = Annotation::None;
+                                          rusttype::Scale::uniform(data.text_size as f32), &font, data.text_annotation.as_str()));*/
+
                         },
                     }
 
-                    // clear the position vector for cases different than line
-                    data.positions = vec![];
-                    let mut png_buffer = std::io::Cursor::new(Vec::new());
-                    cropped_annotated_image.write_to(&mut png_buffer, image::ImageFormat::Png)
-                        .expect("Failed to Save Cropped Image");
-                    data.image_data = png_buffer.into_inner();
+                    window_width = cropped_annotated_image.width();
+                    window_height = cropped_annotated_image.height();
 
-                    let rgba_image = cropped_annotated_image.to_rgba8();
-                    image_buf = ImageBuf::from_raw(
-                        rgba_image.clone().into_raw(),
-                        ImageFormat::RgbaSeparate,
-                        rgba_image.clone().width() as usize,
-                        rgba_image.clone().height() as usize,
-                    );
+                    if data.annotation != Annotation::Text {
+                        // clear the position
+                        data.positions = vec![];
+                        //data.annotation = Annotation::None;
+                        // save the modified version of the image
+                        data.image_data_new = image_to_buffer(cropped_annotated_image);
+                    }
 
                 } else {
                     if dynamic_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || dynamic_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
@@ -352,43 +304,14 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                     dynamic_image = dynamic_image.resize((dynamic_image.width() as f64 * data.scale_factor) as u32, (dynamic_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
-                    let mut png_buffer = std::io::Cursor::new(Vec::new());
-                    dynamic_image.write_to(&mut png_buffer, image::ImageFormat::Png)
-                        .expect("Failed to Save Cropped Image");
-                    data.image_data = png_buffer.into_inner();
 
                     window_width = dynamic_image.width();
                     window_height = dynamic_image.height();
 
-                    let rgba_image = dynamic_image.to_rgba8();
-                    image_buf = ImageBuf::from_raw(
-                        rgba_image.clone().into_raw(),
-                        ImageFormat::RgbaSeparate,
-                        rgba_image.clone().width() as usize,
-                        rgba_image.clone().height() as usize,
-                    );
+                    data.image_data_old = image_to_buffer(dynamic_image);
+
                     data.first_screen = false;
                 }
-
-                let image = Image::new(image_buf);//.fill_mode(FillStrat::None);
-
-                let image_data_clone = data.image_data.clone(); // Clone the data for use in the closure
-
-                let clipboard_button = Button::new("Copy to Clipboard").on_click(move |_ctx, _data: &mut GrabData ,_env| {
-                    // copy to the clipboard
-                    let image = load_from_memory_with_format(&image_data_clone, image::ImageFormat::Png).unwrap().to_rgba8();
-                    let  mut clipboard = arboard::Clipboard::new().unwrap();
-
-                    let img = arboard::ImageData {
-                        width: image.width() as usize,
-                        height: image.height() as usize,
-                        bytes: Cow::from(image.as_bytes())
-                    };
-                    clipboard.set_image(img).unwrap();
-
-                }).fix_size(BUTTON_WIDTH * 2.0, BUTTON_HEIGHT);
-
-                let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
 
                 // increase size of image for images too small
                 while (window_width as f64 * data.scale_factor) <= BUTTON_WIDTH * 2.0 + 10.0 {
@@ -396,20 +319,14 @@ impl Widget<GrabData> for ScreenshotWidget {
                     data.scale_factor+=(BUTTON_WIDTH * 2.0 + 10.0)/(window_width as f64);
                 }
 
-                ctx.window().close();
-                ctx.new_window(
-                    WindowDesc::new(
-                        Flex::column().with_child(
-                            Flex::column()
-                                .with_child(
-                                    ZStack::new(image)
-                                        .with_centered_child(ScreenshotWidget)
-                                )
-                        ).with_child(Flex::column().with_child(create_save_cancel_buttons()).with_child(clipboard_button)
-                            .with_child(create_annotation_buttons())))
-                        .set_position((rect.x0,rect.y0))
-                        .window_size(Size::new( window_width as f64 * data.scale_factor,(window_height as f64 * data.scale_factor + BUTTON_HEIGHT * 6.0)))
-                        .resizable(true));
+                if data.annotation != Annotation::Text {
+                    if data.image_data_new.is_empty() {
+                        create_selection_window(ctx,data);
+                    } else {
+                        create_edit_window(ctx,data);
+                    }
+                }
+
             }
         }
     }
@@ -424,7 +341,7 @@ impl Widget<GrabData> for ScreenshotWidget {
         bc.max()
     }
 
-    fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: &GrabData, env: &druid::Env) {
+    fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: & GrabData, env: &druid::Env) {
         // border color of the current selected color for all the paintings except the rectangle preview
         let mut border_color = Color::rgb8(data.color.0, data.color.1, data.color.2); // White border color
 
@@ -528,9 +445,44 @@ impl Widget<GrabData> for ScreenshotWidget {
                     None => {}
                 }
             }
-            Annotation::Text => {}
+            Annotation::Text => {
+                // take only the starting point to draw the line from it
+                let result = make_rectangle_from_points(data);
+                match result {
+                    Some((min_x,min_y,max_x,max_y)) => {
+
+                        // Create a shape representing the starting line in the widget's coordinate system
+                        let line_shape = Line::new((min_x,min_x),(min_x, min_y + data.text_size));
+
+                        paint_ctx.stroke(line_shape, &border_color, BORDER_WIDTH);
+                    }
+                    None => {}
+                }
+            }
         }
     }
+}
+
+pub fn load_image(data: &GrabData ) -> DynamicImage {
+    let mut image;
+
+    if data.image_data_new.is_empty() {
+        image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
+            .expect("Failed to load image from memory");
+    } else {
+        image = load_from_memory_with_format(&data.image_data_new, image::ImageFormat::Png)
+            .expect("Failed to load image from memory");
+    }
+
+    image
+}
+
+pub fn image_to_buffer(image: DynamicImage) -> Vec<u8> {
+    let mut png_buffer = std::io::Cursor::new(Vec::new());
+    image.write_to(&mut png_buffer, image::ImageFormat::Png)
+        .expect("Failed to Save Modified Image");
+
+    png_buffer.into_inner()
 }
 
 fn make_rectangle_from_points(data: &GrabData ) -> Option<(f64,f64,f64,f64)> {
