@@ -370,193 +370,32 @@ pub fn create_annotation_buttons() -> impl Widget<GrabData> {
 pub fn create_color_buttons() -> impl Widget<GrabData> {
     // 12 colors 4 x 3
     let mut ui_col = Flex::column();
-    let mut ui_row1 = Flex::row();
-    let mut ui_row2 = Flex::row();
-    let mut ui_row3 = Flex::row();
+    // giallo verde blu viola rosso arancione rosa nero bianco marrone grigio
+    let orange = Color::rgba8(255, 165, 0, 255);
+    let pink = Color::rgba8(255, 192, 203, 255);
+    let brown= Color::rgba8(139, 69, 19, 255);
+    let colors: [Color; 12] = [Color::RED, Color::GREEN, Color::BLUE, Color::YELLOW,orange, pink,brown, Color::BLACK,Color::WHITE, Color::GRAY, Color::PURPLE, Color::FUCHSIA];
 
-    // giallo verde blu viola rosso arancione rosa nero bianco marrone grigio magenta
-    let orange: (u8, u8, u8, u8) = (255, 165, 0, 255);
-    let pink : (u8, u8, u8, u8) = (255, 192, 203, 255);
-    let brown : (u8, u8, u8, u8) = (139, 69, 19, 255);
+    for chunk in colors.chunks(4) {
+        let mut ui_row = Flex::row();
+        for &color in chunk {
+            ui_row.add_flex_child(
+                Button::from_label(Label::new("⬤").with_text_color(color))
+                    .on_click(move |ctx, data: &mut GrabData, _env| {
+                        // Change the color and save it
+                        data.color = color.as_rgba8();
 
-    // giallo verde blu viola
-    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::YELLOW.as_rgba8().0,
-            Color::YELLOW.as_rgba8().1,
-            Color::YELLOW.as_rgba8().2,
-            Color::YELLOW.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
+                        let file = File::create("settings.json").unwrap();
+                        to_writer(file, data).unwrap();
+                        ctx.window().close();
+                        //update_color_callback(color);
 
-        // change the color and save
-        data.color = Color::YELLOW.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::GREEN.as_rgba8().0,
-            Color::GREEN.as_rgba8().1,
-            Color::GREEN.as_rgba8().2,
-            Color::GREEN.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = Color::GREEN.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::BLUE.as_rgba8().0,
-            Color::BLUE.as_rgba8().1,
-            Color::BLUE.as_rgba8().2,
-            Color::BLUE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = Color::BLUE.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row1.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::PURPLE.as_rgba8().0,
-            Color::PURPLE.as_rgba8().1,
-            Color::PURPLE.as_rgba8().2,
-            Color::PURPLE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = Color::PURPLE.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    // rosso arancione rosa nero
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::RED.as_rgba8().0,
-            Color::RED.as_rgba8().1,
-            Color::RED.as_rgba8().2,
-            Color::RED.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = Color::RED.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            orange.0,
-            orange.1,
-            orange.2,
-            orange.3))).on_click(move |ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = orange;
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            pink.0,
-            pink.1,
-            pink.2,
-            pink.3))).on_click(move |ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = pink;
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::BLACK.as_rgba8().0,
-            Color::BLACK.as_rgba8().1,
-            Color::BLACK.as_rgba8().2,
-            Color::BLACK.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = Color::BLACK.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    // bianco marrone grigio magenta
-    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::WHITE.as_rgba8().0,
-            Color::WHITE.as_rgba8().1,
-            Color::WHITE.as_rgba8().2,
-            Color::WHITE.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = Color::WHITE.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            brown.0,
-            brown.1,
-            brown.2,
-            brown.3))).on_click(move |ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = brown;
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::GRAY.as_rgba8().0,
-            Color::GRAY.as_rgba8().1,
-            Color::GRAY.as_rgba8().2,
-            Color::GRAY.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = Color::GRAY.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_row3.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(
-        Color::rgba8(
-            Color::FUCHSIA.as_rgba8().0,
-            Color::FUCHSIA.as_rgba8().1,
-            Color::FUCHSIA.as_rgba8().2,
-            Color::FUCHSIA.as_rgba8().3))).on_click(|ctx, data: &mut GrabData, _env| {
-
-        // change the color and save
-        data.color = Color::FUCHSIA.as_rgba8();
-        let file = File::create("settings.json").unwrap();
-        to_writer(file, data).unwrap();
-        ctx.window().close();
-    }), 1.0);
-
-    ui_col.add_flex_child(ui_row1, 1.0);
-    ui_col.add_default_spacer();
-    ui_col.add_flex_child(ui_row2, 1.0);
-    ui_col.add_default_spacer();
-    ui_col.add_flex_child(ui_row3, 1.0);
-    ui_col.add_default_spacer();
-
+                    }),1.0,);
+        }
+        // Aggiungo la riga al layout
+        ui_col.add_flex_child(ui_row, 1.0);
+        ui_col.add_default_spacer();
+    }
     ui_col
 }
 
