@@ -234,7 +234,12 @@ pub fn create_save_cancel_clipboard_buttons() -> impl Widget<GrabData> {
 }
 
 fn build_path_dialog() -> impl Widget<GrabData> {
-    let path_label = Label::dynamic(|data: &GrabData, _env: &_| "Current Path: ".to_owned() + data.save_path.to_str().unwrap() );
+    let path_label = Label::dynamic(|data: &GrabData, _env: &_| {
+        if data.save_path.to_str().unwrap().len() > 40 {
+            return "Current Path: ".to_owned() + &data.save_path.to_str().unwrap()[..40] + &*"...".to_owned();
+        }
+        return "Current Path: ".to_owned() + data.save_path.to_str().unwrap();
+    });
 
     let change_path_button = Button::new("📁").on_click(|ctx, data: &mut GrabData, _env| {
         let result = FileDialog::new()
@@ -260,9 +265,9 @@ fn build_path_dialog() -> impl Widget<GrabData> {
     });
 
     let mut ui_row = Flex::row();
-    ui_row.add_flex_child(path_label, 2.0);
-    ui_row.add_default_spacer();
     ui_row.add_flex_child(change_path_button, 1.0);
+    ui_row.add_default_spacer();
+    ui_row.add_flex_child(path_label, 2.0);
 
     ui_row
 }
@@ -440,23 +445,25 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
             //fs::read(Path::new(format!("{}{}",std::env::current_dir().unwrap().to_str().unwrap(),"\\OpenSans-Semibold.ttf").as_str())).unwrap().as_slice();
             let font: Font<'static> = Font::try_from_bytes(font_data).unwrap();
             // draw line with first and last position, then clear the vector
-            let text_image = DynamicImage::from(
-                draw_text(&image,
-                          Rgba([data.color.0, data.color.1, data.color.2, data.color.3]),
-                          data.positions[0].0 as i32, data.positions[0].1 as i32,
-                          rusttype::Scale::uniform(data.text_size as f32), &font, data.text_annotation.as_str()));
-            // save the modified version of the image
-            data.image_data_new = image_to_buffer(text_image);
+            if !data.positions.is_empty() {
+                let text_image = DynamicImage::from(
+                    draw_text(&image,
+                              Rgba([data.color.0, data.color.1, data.color.2, data.color.3]),
+                              data.positions[0].0 as i32, data.positions[0].1 as i32,
+                              rusttype::Scale::uniform(data.text_size as f32), &font, data.text_annotation.as_str()));
+                // save the modified version of the image
+                data.image_data_new = image_to_buffer(text_image);
 
-            // empty position vector, not done in ScreenshotWidget
-            data.positions = vec![];
+                // empty position vector, not done in ScreenshotWidget
+                data.positions = vec![];
 
-            // recreate the window
-            create_edit_window(ctx, data);
+                // recreate the window
+                create_edit_window(ctx, data);
+            }
         });
         let text_input = TextBox::new().lens(GrabData::text_annotation);
-        let text_font_size = druid::widget::Stepper::new()
-            .with_range(10.0, 50.0)
+        let text_font_size = druid::widget::Slider::new()
+            .with_range(10.0, 60.0)
             .with_step(1.0)
             .lens(GrabData::text_size);
         let font_size = Label::dynamic(|data: &GrabData, _env: &_| "Font Size: ".to_owned() + data.text_size.to_string().as_str());
