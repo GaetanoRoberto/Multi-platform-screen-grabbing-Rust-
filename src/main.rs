@@ -54,7 +54,9 @@ pub struct GrabData {
     screenshot_number: u32,
     monitor_index: usize,
     #[data(ignore)]
-    image_data: Vec<u8>,
+    image_data_old: Vec<u8>,
+    #[data(ignore)]
+    image_data_new: Vec<u8>,
     #[data(ignore)]
     save_path: Box<Path>,
     save_format: String,
@@ -73,7 +75,9 @@ pub struct GrabData {
     trigger_ui: bool,
     #[data(ignore)]
     annotation: Annotation,
-    color: (u8,u8,u8,u8)
+    color: (u8,u8,u8,u8),
+    text_annotation: String,
+    text_size : f64
 }
 
 fn main() -> Result<(), PlatformError> {
@@ -87,7 +91,8 @@ fn main() -> Result<(), PlatformError> {
     /*let data = GrabData {
         screenshot_number: 1,
         monitor_index: 0,
-        image_data: vec![],
+        image_data_old: vec![],
+        image_data_new: vec![],
         save_path: env::current_dir().expect("Failed to get current directory").into_boxed_path(),
         save_format: "png".to_string(),
         press: false,
@@ -103,6 +108,8 @@ fn main() -> Result<(), PlatformError> {
         trigger_ui: false,
         annotation: Annotation::None,
         color: (255,255,255,255),
+        text_annotation: "".to_string(),
+        text_size : 0.0
     };*/
     AppLauncher::with_window(main_window).delegate(Delegate).launch(data)
 }

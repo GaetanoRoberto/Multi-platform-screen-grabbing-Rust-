@@ -25,7 +25,8 @@ impl AppDelegate<GrabData> for Delegate {
             _data.first_screen = true;
             _data.positions = vec![];
             _data.scale_factor = 1.0;
-            _data.image_data = vec![];
+            _data.image_data_old = vec![];
+            _data.image_data_new = vec![];
             _data.set_hot_key = false;
             _data.annotation = Annotation::None;
             let file = File::create("settings.json").unwrap();
