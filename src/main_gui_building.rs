@@ -359,10 +359,12 @@ pub fn create_annotation_buttons() -> impl Widget<GrabData> {
         create_edit_window(ctx,data);
     }), 1.0);
     ui_row2.add_default_spacer();
-    ui_row2.add_flex_child(Button::from_label(Label::new("⬤").with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3))).on_click(|ctx, data: &mut GrabData, _env| {
-        //data.annotation = Annotation::Circle;
-        ctx.new_sub_window(WindowConfig::default().window_size((100.0,100.0)).show_titlebar(false), create_color_buttons(), data.clone(), _env.clone());
-    }), 1.0);
+    ui_row2.add_flex_child(Button::from_label(Label::new("⬤")
+        .with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3)))
+                               .on_click(|ctx, data: &mut GrabData, _env| {
+                                   ctx.window().close();
+                                   ctx.new_window(WindowDesc::new(create_color_buttons()).window_size((100.0,100.0)).show_titlebar(false));
+                               }), 1.0);
 
     Flex::column().with_child(ui_row1).with_child(ui_row2)
 }
@@ -387,9 +389,7 @@ pub fn create_color_buttons() -> impl Widget<GrabData> {
 
                         let file = File::create("settings.json").unwrap();
                         to_writer(file, data).unwrap();
-                        ctx.window().close();
-                        //update_color_callback(color);
-
+                        create_selection_window(ctx,data);
                     }),1.0,);
         }
         // Aggiungo la riga al layout
