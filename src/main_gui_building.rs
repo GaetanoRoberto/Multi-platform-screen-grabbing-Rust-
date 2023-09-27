@@ -429,8 +429,6 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
     ui_row1.add_flex_child(reject,1.0);
     ui_row1.add_default_spacer();
 
-    ui_column.add_flex_child(ui_row1, 1.0);
-    ui_column.add_default_spacer();
 
     if data.annotation == Annotation::Text {
         // add also text handling widgets
@@ -454,24 +452,20 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
             data.positions = vec![];
 
             // recreate the window
-            create_edit_window(ctx,data);
+            create_edit_window(ctx, data);
         });
         let text_input = TextBox::new().lens(GrabData::text_annotation);
         let text_font_size = druid::widget::Stepper::new()
             .with_range(10.0, 50.0)
             .with_step(1.0)
             .lens(GrabData::text_size);
-        let font_size = Label::dynamic(|data: &GrabData, _env: &_| "Font Size: ".to_owned() +  data.text_size.to_string().as_str() );
+        let font_size = Label::dynamic(|data: &GrabData, _env: &_| "Font Size: ".to_owned() + data.text_size.to_string().as_str());
 
-        ui_column.add_flex_child(add_text,1.0);
-        ui_column.add_default_spacer();
-        ui_column.add_flex_child(text_input,1.0);
-        ui_column.add_default_spacer();
-        ui_column.add_flex_child(Flex::row().with_child(text_font_size).with_child(font_size), 1.0);
-        ui_column.add_default_spacer();
+        return ui_column.with_child(ui_row1).with_child(add_text).with_child(text_input)
+            .with_child(Flex::row().with_child(text_font_size).with_child(font_size))
     }
 
-    ui_column
+    ui_column.with_child(ui_row1)
 }
 
 pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {

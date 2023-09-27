@@ -452,7 +452,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                     Some((min_x,min_y,max_x,max_y)) => {
 
                         // Create a shape representing the starting line in the widget's coordinate system
-                        let line_shape = Line::new((min_x,min_x),(min_x, min_y + data.text_size));
+                        let line_shape = Line::new((min_x,min_y),(min_x, min_y + data.text_size));
 
                         paint_ctx.stroke(line_shape, &border_color, BORDER_WIDTH);
                     }
