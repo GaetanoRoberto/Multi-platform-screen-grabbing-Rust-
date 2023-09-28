@@ -136,6 +136,17 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
     ui_column.add_flex_child(Label::new(|data: &GrabData, _env: &_| {
         data.hotkey.join(" + ")
     }), 1.0);
+
+    let error_label = Label::dynamic(|data: &GrabData, _: &Env| {
+        if data.input_timer_error.0 {
+            data.input_timer_error.1.clone()
+        } else {
+            String::new()
+        }
+    }).with_text_color(Color::rgb(0.8, 0.0, 0.0));
+
+    ui_column.add_flex_child(error_label, 1.0);
+    ui_column.add_default_spacer();
     /*let screens = Screen::all().unwrap();
     let mut monitor_buttons = Flex::row();
     let mut monitor_index = 1;
@@ -288,8 +299,8 @@ fn create_timer_ui() -> impl Widget<GrabData> {
         .lens(GrabData::delay);
 
     let error_label = Label::dynamic(|data: &GrabData, _: &Env| {
-        if data.input_error.0 {
-            data.input_error.1.clone()
+        if data.input_timer_error.0 {
+            data.input_timer_error.1.clone()
         } else {
             String::new()
         }
@@ -300,7 +311,7 @@ fn create_timer_ui() -> impl Widget<GrabData> {
         if data.delay.parse::<u64>().is_ok() {
             timer_handling(ctx,data.monitor_index,data.delay.parse::<u64>().unwrap());
         } else {
-            data.input_error = (true,"Empty Input: Insert a Number".to_string());
+            data.input_timer_error = (true,"Empty Input: Insert a Number".to_string());
         }
     });
 
@@ -372,7 +383,7 @@ pub fn create_annotation_buttons() -> impl Widget<GrabData> {
         .with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3)))
                                .on_click(|ctx, data: &mut GrabData, _env| {
                                    ctx.window().close();
-                                   ctx.new_window(WindowDesc::new(create_color_buttons()).window_size((100.0,100.0)).show_titlebar(false));
+                                   ctx.new_window(WindowDesc::new(create_color_buttons()).window_size((250.0,200.0)).show_titlebar(false).resizable(false));
                                }), 1.0);
 
     Flex::column().with_child(ui_row1).with_child(ui_row2)
@@ -381,6 +392,11 @@ pub fn create_annotation_buttons() -> impl Widget<GrabData> {
 pub fn create_color_buttons() -> impl Widget<GrabData> {
     // 12 colors 4 x 3
     let mut ui_col = Flex::column();
+    ui_col.add_default_spacer();
+    let label = Label::new("Choose a color:");
+    ui_col.add_flex_child(label,2.0);
+    ui_col.add_default_spacer();
+
     // giallo verde blu viola rosso arancione rosa nero bianco marrone grigio
     let orange = Color::rgba8(255, 165, 0, 255);
     let pink = Color::rgba8(255, 192, 203, 255);
@@ -390,6 +406,8 @@ pub fn create_color_buttons() -> impl Widget<GrabData> {
     for chunk in colors.chunks(4) {
         let mut ui_row = Flex::row();
         for &color in chunk {
+            //ui_row.add_flex_spacer(2.0);
+
             ui_row.add_flex_child(
                 Button::from_label(Label::new("⬤").with_text_color(color))
                     .on_click(move |ctx, data: &mut GrabData, _env| {
@@ -399,12 +417,19 @@ pub fn create_color_buttons() -> impl Widget<GrabData> {
                         let file = File::create("settings.json").unwrap();
                         to_writer(file, data).unwrap();
                         create_selection_window(ctx,data);
-                    }),1.0,);
+                    }).expand_width(),2.0,);
         }
+
         // Aggiungo la riga al layout
-        ui_col.add_flex_child(ui_row, 1.0);
+        ui_col.add_flex_child(ui_row,1.0);
         ui_col.add_default_spacer();
     }
+    let reject = Button::new("Cancel").on_click(|ctx, data: &mut GrabData ,_env| {
+        // return in the selection window
+        create_selection_window(ctx,data);
+    });
+    ui_col.add_flex_child(reject,1.0);
+    ui_col.add_default_spacer();
     ui_col
 }
 

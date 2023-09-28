@@ -29,7 +29,7 @@ impl AppDelegate<GrabData> for Delegate {
             data.image_data_new = vec![];
             data.set_hot_key = false;
             data.annotation = Annotation::None;
-            data.input_error = (false,"".to_string());
+            data.input_timer_error = (false,"".to_string());
             let file = File::create("settings.json").unwrap();
             to_writer(file, data).unwrap();
             // the event keep processing and the window is closed
@@ -50,7 +50,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
             }
             Event::MouseDown(mouse) => {
                 if mouse.button.is_left() {
-                    data.input_error.0 = false;
+                    data.input_timer_error.0 = false;
                     ctx.resign_focus();
                     ctx.request_focus();
                 }
@@ -111,19 +111,19 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
             Event::KeyDown(key_event) => {
                 // remove error if widget lose focus (when pressing enter)
                 if key_event.key.to_string() == "Enter" {
-                    data.input_error.0 = false;
+                    data.input_timer_error.0 = false;
                 }
             }
             Event::KeyUp(key_event) => {
                 // if lenght of the input field has not changed, it means that there is a wrong user input
                 if !(data.delay_length == data.delay.len() && data.delay_length == 0 && key_event.key.to_string() == "Backspace") {
                     if data.delay_length == data.delay.len() {
-                        data.input_error.0 = true;
+                        data.input_timer_error.0 = true;
                         // set error message in case empty input happened
-                        data.input_error.1 = "Invalid Input: Only Positive Number are Allowed.".to_string();
+                        data.input_timer_error.1 = "Invalid Input: Only Positive Number are Allowed.".to_string();
                     } else {
                         // all ok, update the length of the field
-                        data.input_error.0 = false;
+                        data.input_timer_error.0 = false;
                         data.delay_length = data.delay.len();
                     }
                 }

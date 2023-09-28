@@ -71,7 +71,8 @@ pub struct GrabData {
     set_hot_key: bool,
     delay: String,
     delay_length: usize,
-    input_error: (bool,String),
+    input_timer_error: (bool,String),
+    input_hotkey_error: (bool,String),
     trigger_ui: bool,
     #[data(ignore)]
     annotation: Annotation,
@@ -104,7 +105,7 @@ fn main() -> Result<(), PlatformError> {
         set_hot_key: false,
         delay: "".to_string(),
         delay_length: 0,
-        input_error: (false,"Invalid Input: Only Positive Number are Allowed.".to_string()),
+        input_timer_error: (false,"Invalid Input: Only Positive Number are Allowed.".to_string()),
         trigger_ui: false,
         annotation: Annotation::None,
         color: (255,255,255,255),
