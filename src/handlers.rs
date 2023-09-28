@@ -14,7 +14,7 @@ impl AppDelegate<GrabData> for Delegate {
         _ctx: &mut DelegateCtx,
         _target: druid::Target,
         cmd: &druid::Command,
-        _data: &mut GrabData,
+        data: &mut GrabData,
         _env: &druid::Env,
     ) -> druid::Handled {
         if cmd.is(commands::CLOSE_WINDOW) {
@@ -22,15 +22,16 @@ impl AppDelegate<GrabData> for Delegate {
             // Handle the window close event
             println!("Closing the window");
             // cancel all image data
-            _data.first_screen = true;
-            _data.positions = vec![];
-            _data.scale_factor = 1.0;
-            _data.image_data_old = vec![];
-            _data.image_data_new = vec![];
-            _data.set_hot_key = false;
-            _data.annotation = Annotation::None;
+            data.first_screen = true;
+            data.positions = vec![];
+            data.scale_factor = 1.0;
+            data.image_data_old = vec![];
+            data.image_data_new = vec![];
+            data.set_hot_key = false;
+            data.annotation = Annotation::None;
+            data.input_error = (false,"".to_string());
             let file = File::create("settings.json").unwrap();
-            to_writer(file, _data).unwrap();
+            to_writer(file, data).unwrap();
             // the event keep processing and the window is closed
             return druid::Handled::No;
         }

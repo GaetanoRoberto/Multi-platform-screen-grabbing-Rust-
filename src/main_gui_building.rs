@@ -297,7 +297,11 @@ fn create_timer_ui() -> impl Widget<GrabData> {
     .with_text_color(Color::rgb(0.8, 0.0, 0.0));
 
     let start_timer_btn = Button::new("Start Timer").on_click(|ctx, data: &mut GrabData, _env| {
-        timer_handling(ctx,data.monitor_index,data.delay.parse::<u64>().unwrap());
+        if data.delay.parse::<u64>().is_ok() {
+            timer_handling(ctx,data.monitor_index,data.delay.parse::<u64>().unwrap());
+        } else {
+            data.input_error = (true,"Empty Input: Insert a Number".to_string());
+        }
     });
 
     let mut ui_row = Flex::row();
