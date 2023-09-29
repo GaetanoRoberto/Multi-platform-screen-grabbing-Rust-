@@ -23,6 +23,7 @@ impl AppDelegate<GrabData> for Delegate {
             println!("Closing the window");
             // cancel all image data
             data.first_screen = true;
+            data.offsets = vec![];
             data.positions = vec![];
             data.scale_factor = 1.0;
             data.image_data_old = vec![];

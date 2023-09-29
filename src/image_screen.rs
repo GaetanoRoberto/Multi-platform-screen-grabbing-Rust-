@@ -350,12 +350,24 @@ impl Widget<GrabData> for ScreenshotWidget {
                 let result = make_rectangle_from_points(data);
                 match result {
                     Some((x0,y0,x1,y1)) => {
-                        let scaled_x0 = x0 * data.scale_factor;
-                        let scaled_y0 = y0 * data.scale_factor;
-                        let scaled_x1 = x1 * data.scale_factor;
-                        let scaled_y1 = y1 * data.scale_factor;
-                        //println!("paint x0: {} {}",x0,y0);
-                        //println!("paint x1: {} {}",x1,y1);
+                        let mut scaled_x0;
+                        let mut scaled_y0;
+                        let mut scaled_x1;
+                        let mut scaled_y1;
+
+                        if data.first_screen {
+                            scaled_x0 = x0;
+                            scaled_y0 = y0;
+                            scaled_x1 = x1;
+                            scaled_y1 = y1;
+                        } else {
+                            // add offset to currectly draw the rectangle
+                            scaled_x0 = x0 + data.offsets[0].0;
+                            scaled_y0 = y0 + data.offsets[0].1;
+                            scaled_x1 = x1 + data.offsets[data.offsets.len()-1].0;
+                            scaled_y1 = y1 + data.offsets[data.offsets.len()-1].1;
+                        }
+
                         // Create a shape representing the rectangle in the widget's coordinate system
                         let rect_shape = Rect::new(scaled_x0, scaled_y0, scaled_x1, scaled_y1);
                         if data.annotation == Annotation::None {
@@ -468,13 +480,13 @@ pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &
     let image_height = image.height() as f64 * data.scale_factor;
     let x_offset = (widget_size.width - image_width) / 2.0;
     let y_offset = (widget_size.height - image_height) / 2.0;
+    // save corresponding offset to subtract in rectangle paint function
+    data.offsets.push(<(f64, f64)>::from((x_offset,y_offset)));
     // Adjust mouse coordinates
     let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
     centered_pos.x = centered_pos.x / data.scale_factor;
     centered_pos.y = centered_pos.y / data.scale_factor;
-    if data.annotation == Annotation::Text {
-        println!("centered coordinates: {}",centered_pos);
-    }
+    println!("centered coordinates: {}",centered_pos);
     data.positions.push(<(f64, f64)>::from(centered_pos));
 }
 
