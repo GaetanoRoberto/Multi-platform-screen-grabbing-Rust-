@@ -512,6 +512,37 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
 }
 
 pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
+    let description_label = Label::dynamic(|data: &GrabData, _env: &_| {
+        match data.annotation {
+            Annotation::None => {
+                return "Click and Drag to Crop the Area: ".to_string();
+            }
+            Annotation::Circle => {
+                return "Click and Drag to Draw a Circle: ".to_string();
+            }
+            Annotation::Line => {
+                return "Click and Drag to Draw a Line: ".to_string();
+            }
+            Annotation::Cross => {
+                return "Click and Drag to Draw a Cross: ".to_string();
+            }
+            Annotation::Rectangle => {
+                return "Click and Drag to Draw a Rectangle: ".to_string();
+            }
+            Annotation::FreeLine => {
+                return "Click and Drag to Draw a Free Line: ".to_string();
+            }
+            Annotation::Highlighter => {
+                return "".to_string();
+            }
+            Annotation::Arrow => {
+                return "Click and Drag to Draw an Arrow: ".to_string();
+            }
+            Annotation::Text => {
+                return "Click to Select the Point where writing text, then write it through the textbox and select the font size:".to_string();
+            }
+        }
+    });
 
     let dyn_image = load_image(data);
 
@@ -528,7 +559,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
     ctx.window().close();
     ctx.new_window(
         WindowDesc::new(
-            Flex::column().with_child(
+            Flex::column().with_child(description_label).with_child(
                 Flex::column()
                     .with_child(
                         ZStack::new(Image::new(image_buf))
