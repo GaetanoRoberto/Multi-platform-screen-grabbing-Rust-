@@ -40,12 +40,18 @@ impl Widget<GrabData> for ScreenshotWidget {
             }
             //ctx.set_cursor(&Cursor::Crosshair);
         }
-
+        /*if let Event::WindowConnected = event {
+            data.scale_factor = ctx.window().get_size().height / ctx.window().get_size().width;
+        }
+        if let Event::WindowSize(wsize) = event {
+            data.scale_factor = wsize.aspect_ratio();
+        }*/
         if let Event::MouseMove(mouse_event) = event {
             ctx.set_cursor(&Cursor::Crosshair);
             //println!("{:?}",(mouse_event.pos.x,mouse_event.pos.y));
             if data.press && data.first_screen {
                 data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
+                println!("coordinates: {:?}",(mouse_event.window_pos.x,mouse_event.window_pos.y));
             }
             if data.press && !data.first_screen {
                 let mut image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
@@ -60,7 +66,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                 let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
                 centered_pos.x = centered_pos.x / data.scale_factor;
                 centered_pos.y = centered_pos.y / data.scale_factor;
-                println!("{}",centered_pos);
+                println!("centered coordinates: {}",centered_pos);
                 data.positions.push(<(f64, f64)>::from(centered_pos));
             }
             ctx.request_paint();
@@ -98,8 +104,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                     data.positions = vec![];
                 }
 
-                let mut dynamic_image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
-                    .expect("Failed to load image from memory");
+                let mut dynamic_image = load_image(data);
                 let mut window_width= 0;
                 let mut window_height = 0;
                 let mut cropped_annotated_image = dynamic_image.clone();
@@ -137,7 +142,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             } else {
                                 data.scale_factor = 1.0;
                             }
-                            cropped_annotated_image = cropped_annotated_image.resize((cropped_annotated_image.width() as f64 * data.scale_factor) as u32, (cropped_annotated_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
+                            // cropped_annotated_image = cropped_annotated_image.resize((cropped_annotated_image.width() as f64 * data.scale_factor) as u32, (cropped_annotated_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
                         },
                         Annotation::Circle => {
@@ -302,7 +307,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                         data.scale_factor = 1.0;
                     }
 
-                    dynamic_image = dynamic_image.resize((dynamic_image.width() as f64 * data.scale_factor) as u32, (dynamic_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
+                    // dynamic_image = dynamic_image.resize((dynamic_image.width() as f64 * data.scale_factor) as u32, (dynamic_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
 
                     window_width = dynamic_image.width();
@@ -354,7 +359,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                         let scaled_y0 = y0 * data.scale_factor;
                         let scaled_x1 = x1 * data.scale_factor;
                         let scaled_y1 = y1 * data.scale_factor;
-
+                        //println!("paint x0: {} {}",x0,y0);
+                        //println!("paint x1: {} {}",x1,y1);
                         // Create a shape representing the rectangle in the widget's coordinate system
                         let rect_shape = Rect::new(scaled_x0, scaled_y0, scaled_x1, scaled_y1);
                         if data.annotation == Annotation::None {

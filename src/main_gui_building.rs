@@ -19,6 +19,7 @@ use crate::input_field::PositiveNumberFormatter;
 use native_dialog::{FileDialog};
 use rusttype::Font;
 use tokio;
+use image::imageops::FilterType;
 
 pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize) {
     let screen = Screen::all().unwrap()[monitor_index];
@@ -506,7 +507,9 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
 
 pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
-    let image = load_image(data).to_rgba8();
+    let dyn_image = load_image(data);
+
+    let image = dyn_image.resize((dyn_image.width() as f64 * data.scale_factor) as u32, (dyn_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest).to_rgba8();
 
     let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
     let image_buf = ImageBuf::from_raw(
@@ -534,7 +537,9 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
 pub fn create_selection_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
-    let image = load_image(data).to_rgba8();
+    let dyn_image = load_image(data);
+
+    let image = dyn_image.resize((dyn_image.width() as f64 * data.scale_factor) as u32, (dyn_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest).to_rgba8();
 
     let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
     let image_buf = ImageBuf::from_raw(
