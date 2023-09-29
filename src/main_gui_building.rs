@@ -22,7 +22,12 @@ use tokio;
 use image::imageops::FilterType;
 use crate::grab_data_derived_lenses::hotkey;
 
-pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize) {
+pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut GrabData) {
+    // reset completely data in order to take a screenshot from scratch
+    data.annotation = Annotation::None;
+    data.first_screen = true;
+    data.image_data_old = vec![];
+    data.image_data_new = vec![];
     let screen = Screen::all().unwrap()[monitor_index];
     let rect = druid::Screen::get_monitors()[monitor_index].virtual_rect();
     ctx.window().close();
@@ -43,7 +48,7 @@ fn create_monitor_buttons() -> Flex<GrabData> {
         let btn = Button::new( "📷 Monitor ".to_owned() + &monitor_index.to_string()).on_click(
             move |_ctx, _data: &mut GrabData ,_env| {
                 _data.monitor_index = monitor_index - 1;
-                start_screening(_ctx,_data.monitor_index);
+                start_screening(_ctx, _data.monitor_index, _data);
             }
         );
         monitor_buttons = monitor_buttons.with_child(btn);
@@ -394,11 +399,11 @@ fn build_path_dialog() -> impl Widget<GrabData> {
 }
 
 #[tokio::main]
-pub async fn timer_handling(ctx: &mut EventCtx,monitor_index: usize, time: u64) {
+pub async fn timer_handling(ctx: &mut EventCtx,monitor_index: usize, time: u64, data: &mut GrabData) {
     // Sleep for time seconds
     tokio::time::sleep(Duration::from_secs(time)).await;
     // take the screenshot
-    start_screening(ctx,monitor_index);
+    start_screening(ctx,monitor_index,data);
 }
 
 fn create_timer_ui() -> impl Widget<GrabData> {
@@ -419,7 +424,7 @@ fn create_timer_ui() -> impl Widget<GrabData> {
 
     let start_timer_btn = Button::new("Start Timer").on_click(|ctx, data: &mut GrabData, _env| {
         if data.delay.parse::<u64>().is_ok() {
-            timer_handling(ctx,data.monitor_index,data.delay.parse::<u64>().unwrap());
+            timer_handling(ctx,data.monitor_index,data.delay.parse::<u64>().unwrap(),data);
         } else {
             data.input_timer_error = (true,"Empty Input: Insert a Number".to_string());
         }
@@ -674,7 +679,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
                         ZStack::new(Image::new(image_buf))
                             .with_centered_child(ScreenshotWidget)
                     )
-            ).with_child(create_edit_window_widgets(data)))
+            ).with_child(create_edit_window_widgets(data)).controller(Enter))
             .set_position((rect.x0,rect.y0))
             .window_size(Size::new( image.width() as f64 * data.scale_factor,(image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 6.0)))
             .resizable(true))
@@ -702,7 +707,7 @@ pub fn create_selection_window(ctx: &mut EventCtx, data: &mut GrabData) {
                 Flex::column()
                     .with_child(Image::new(image_buf))
             ).with_child(Flex::column().with_child(create_save_cancel_clipboard_buttons())
-                .with_child(create_annotation_buttons())))
+                .with_child(create_annotation_buttons())).controller(Enter))
             .set_position((rect.x0,rect.y0))
             .window_size(Size::new( image.width() as f64 * data.scale_factor,(image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 6.0)))
             .resizable(true))

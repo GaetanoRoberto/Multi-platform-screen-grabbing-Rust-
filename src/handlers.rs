@@ -84,7 +84,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                     // if the pressed keys corresponds to the hotkey combination, acquire the screen
                     if data.hotkey_sequence == data.hotkey.len() {
                         // acquire screen
-                        start_screening(ctx,data.monitor_index);
+                        start_screening(ctx,data.monitor_index,data);
                         data.hotkey_sequence = 0;
                     }
                 }
