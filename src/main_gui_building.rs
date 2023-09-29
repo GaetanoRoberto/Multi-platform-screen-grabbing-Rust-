@@ -447,6 +447,8 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
         data.image_data_new = vec![];
         // reset annotation
         data.annotation = Annotation::None;
+        // clear positions (for text annotation case)
+        data.positions = vec![];
         // return in the selection window
         create_selection_window(ctx,data);
     });
@@ -455,6 +457,8 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
         data.image_data_new = vec![];
         // reset annotation
         data.annotation = Annotation::None;
+        // clear positions (for text annotation case)
+        data.positions = vec![];
         // return in the selection window
         create_selection_window(ctx,data);
     });
@@ -476,10 +480,12 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
             let font: Font<'static> = Font::try_from_bytes(font_data).unwrap();
             // draw line with first and last position, then clear the vector
             if !data.positions.is_empty() {
+                // take the only point to draw the text from it
+                // the last point if we click many times, so len-1
+                let (x,y) = (data.positions[data.positions.len()-1].0 as i32,data.positions[data.positions.len()-1].1 as i32);
                 let text_image = DynamicImage::from(
                     draw_text(&image,
-                              Rgba([data.color.0, data.color.1, data.color.2, data.color.3]),
-                              data.positions[0].0 as i32, data.positions[0].1 as i32,
+                              Rgba([data.color.0, data.color.1, data.color.2, data.color.3]), x, y,
                               rusttype::Scale::uniform(data.text_size as f32), &font, data.text_annotation.as_str()));
                 // save the modified version of the image
                 data.image_data_new = image_to_buffer(text_image);

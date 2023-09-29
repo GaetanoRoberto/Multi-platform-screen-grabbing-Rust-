@@ -4,7 +4,7 @@ use std::fs;
 use std::fs::{create_dir_all, File};
 use std::io::Read;
 use std::path::Path;
-use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, Point, Rect, RenderContext, Scale, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
+use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, MouseEvent, Point, Rect, RenderContext, Scale, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
@@ -38,7 +38,10 @@ impl Widget<GrabData> for ScreenshotWidget {
             if mouse_event.button.is_left() {
                 data.press = true;
             }
-            //ctx.set_cursor(&Cursor::Crosshair);
+            //if annotation text, simply take the point where the mouse is pressed (take no point when mouse moves)
+            if data.annotation == Annotation::Text {
+                rescale_coordinates(ctx,mouse_event,data);
+            }
         }
         /*if let Event::WindowConnected = event {
             data.scale_factor = ctx.window().get_size().height / ctx.window().get_size().width;
@@ -47,27 +50,19 @@ impl Widget<GrabData> for ScreenshotWidget {
             data.scale_factor = wsize.aspect_ratio();
         }*/
         if let Event::MouseMove(mouse_event) = event {
-            ctx.set_cursor(&Cursor::Crosshair);
-            //println!("{:?}",(mouse_event.pos.x,mouse_event.pos.y));
-            if data.press && data.first_screen {
-                data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
-                println!("coordinates: {:?}",(mouse_event.window_pos.x,mouse_event.window_pos.y));
-            }
-            if data.press && !data.first_screen {
-                let mut image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
-                    .expect("Failed to load image from memory");
-                // Calculate the offset to center mouse positions in the Image
-                let widget_size = ctx.size();
-                let image_width = image.width() as f64 * data.scale_factor;
-                let image_height = image.height() as f64 * data.scale_factor;
-                let x_offset = (widget_size.width - image_width) / 2.0;
-                let y_offset = (widget_size.height - image_height) / 2.0;
-                // Adjust mouse coordinates
-                let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
-                centered_pos.x = centered_pos.x / data.scale_factor;
-                centered_pos.y = centered_pos.y / data.scale_factor;
-                println!("centered coordinates: {}",centered_pos);
-                data.positions.push(<(f64, f64)>::from(centered_pos));
+            if data.annotation == Annotation::Text {
+                ctx.set_cursor(&Cursor::IBeam);
+            } else {
+                ctx.set_cursor(&Cursor::Crosshair);
+                // first screen case
+                if data.press && data.first_screen {
+                    data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
+                    println!("coordinates: {:?}",(mouse_event.window_pos.x,mouse_event.window_pos.y));
+                }
+                // two or more case
+                if data.press && !data.first_screen {
+                    rescale_coordinates(ctx,mouse_event,data);
+                }
             }
             ctx.request_paint();
         }
@@ -452,21 +447,35 @@ impl Widget<GrabData> for ScreenshotWidget {
                 }
             }
             Annotation::Text => {
-                // take only the starting point to draw the line from it
-                let result = make_rectangle_from_points(data);
-                match result {
-                    Some((min_x,min_y,max_x,max_y)) => {
+                if !data.positions.is_empty() {
+                    // take the only point to draw the text line from it
+                    // the last point if we click many times, so len-1
+                    let (min_x,min_y) = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+                    let line_shape = Line::new((min_x,min_y),(min_x, min_y + data.text_size));
 
-                        // Create a shape representing the starting line in the widget's coordinate system
-                        let line_shape = Line::new((min_x,min_y),(min_x, min_y + data.text_size));
-
-                        paint_ctx.stroke(line_shape, &border_color, BORDER_WIDTH);
-                    }
-                    None => {}
+                    paint_ctx.stroke(line_shape, &border_color, BORDER_WIDTH);
                 }
             }
         }
     }
+}
+
+pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &mut GrabData) {
+    let mut image = load_image(data);
+    // Calculate the offset to center mouse positions in the Image
+    let widget_size = ctx.size();
+    let image_width = image.width() as f64 * data.scale_factor;
+    let image_height = image.height() as f64 * data.scale_factor;
+    let x_offset = (widget_size.width - image_width) / 2.0;
+    let y_offset = (widget_size.height - image_height) / 2.0;
+    // Adjust mouse coordinates
+    let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
+    centered_pos.x = centered_pos.x / data.scale_factor;
+    centered_pos.y = centered_pos.y / data.scale_factor;
+    if data.annotation == Annotation::Text {
+        println!("centered coordinates: {}",centered_pos);
+    }
+    data.positions.push(<(f64, f64)>::from(centered_pos));
 }
 
 pub fn load_image(data: &GrabData ) -> DynamicImage {
