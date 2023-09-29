@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::time::Duration;
 use druid::widget::{Button, Controller, Flex, Image, Label, TextBox, ValueTextBox, ZStack};
-use druid::{Color, Command, Env, Event, EventCtx, ImageBuf, KbKey, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
+use druid::{AppLauncher, Color, Command, Env, Event, EventCtx, ImageBuf, KbKey, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::ImageFormat;
 use druid_widget_nursery::{AdvancedSlider, DropdownSelect, WidgetExt as OtherWidgetExt};
 use image::{DynamicImage, EncodableLayout, load_from_memory_with_format, Rgba};
@@ -14,12 +14,13 @@ use serde_json::{from_reader, to_writer};
 use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT, OPACITY};
 use crate::{Annotation, GrabData};
 use crate::image_screen::{image_to_buffer, load_image, ScreenshotWidget};
-use crate::handlers::{Enter, NumericTextBoxController};
+use crate::handlers::{Delegate, Enter, NumericTextBoxController};
 use crate::input_field::PositiveNumberFormatter;
 use native_dialog::{FileDialog};
 use rusttype::Font;
 use tokio;
 use image::imageops::FilterType;
+use crate::grab_data_derived_lenses::hotkey;
 
 pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize) {
     let screen = Screen::all().unwrap()[monitor_index];
@@ -117,36 +118,35 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
     );
 
     ui_column.add_default_spacer();
-    ui_column.add_flex_child(Button::dynamic(|data: & GrabData, _env| {
-        if data.set_hot_key {
-            "Set Hotkeys".to_string()
-        } else {
-            "Edit Hotkeys".to_string()
-        }
-    }).on_click(
+    ui_column.add_flex_child( Button::new("Edit Hotkeys".to_string()).on_click(
         move |_ctx, _data: &mut GrabData, _env| {
-            _data.set_hot_key = !_data.set_hot_key;
-            if _data.set_hot_key == true {
+            //_data.set_hot_key = !_data.set_hot_key;
+            //if _data.set_hot_key == true {
                 // from false to true, i want to edit hotkeys, i start from scratch with empty vector combination
-                _data.hotkey.clear();
-            }
+                //edit
+                //_data.hotkey.clear();
+                _data.hotkey_new.clear();
+                _ctx.window().close();
+                _ctx.new_window(WindowDesc::new(hotkeys_window()).window_size((600.0,300.0)).show_titlebar(false).resizable(false));
+
+            /*}else{
+                //set
+                _data.hotkey = _data.hotkey_new.clone();
+                _data.input_hotkey_error.0 = false;
+            }*/
         }
     ), 1.0);
 
     ui_column.add_default_spacer();
-    ui_column.add_flex_child(Label::new(|data: &GrabData, _env: &_| {
-        data.hotkey.join(" + ")
+    ui_column.add_flex_child(Label::dynamic(|data: &GrabData, _: &Env| {
+        //if data.set_hot_key == true {
+            //data.hotkey_new.join(" + ")
+        //}else{
+            data.hotkey.join(" + ")
+        //}
     }), 1.0);
 
-    let error_label = Label::dynamic(|data: &GrabData, _: &Env| {
-        if data.input_timer_error.0 {
-            data.input_timer_error.1.clone()
-        } else {
-            String::new()
-        }
-    }).with_text_color(Color::rgb(0.8, 0.0, 0.0));
 
-    ui_column.add_flex_child(error_label, 1.0);
     ui_column.add_default_spacer();
     /*let screens = Screen::all().unwrap();
     let mut monitor_buttons = Flex::row();
@@ -168,7 +168,116 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
 
     fusion
 }
+pub fn hotkeys_window() -> impl Widget<GrabData> {
+    let file = File::open("settings.json").unwrap();
+    let data: GrabData = from_reader(file).unwrap();
 
+    let mut ui_row = Flex::column();
+    let mut ui_column = Flex::row();
+    ui_row.add_default_spacer();
+    ui_row.add_flex_child(Label::new("Hotkeys for screenshot: "), 1.0);
+    ui_row.add_default_spacer();
+    ui_column.add_default_spacer();
+
+    // button to edit
+    ui_column.add_flex_child(Button::dynamic(|data: & GrabData, _env| {
+        if data.set_hot_key {
+            "Save".to_string()
+        } else {
+            "Edit Hotkeys".to_string()
+        }
+    }).on_click(
+        move |_ctx, _data: &mut GrabData, _env| {
+            _data.set_hot_key = !_data.set_hot_key;
+            if _data.set_hot_key == true {
+                //edit
+                //_data.hotkey.clear();
+                _data.hotkey_new.clear();
+            }else{
+                //save
+                if _data.hotkey_new.is_empty() {
+                    _data.input_hotkey_error.0 = true;
+                    _data.input_hotkey_error.1 = "Can't have empty hotkeys".to_string();
+                    data.set_hot_key == true;
+                }else {
+                    _data.hotkey = _data.hotkey_new.clone();
+                    _data.input_hotkey_error.0 = false;
+                    _ctx.window().close();
+                    let main_window = WindowDesc::new(build_ui())
+                        .title("Screen grabbing Utility")
+                        .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
+                    _ctx.new_window(main_window);
+                }
+            }
+        }
+    ), 1.0);
+
+    // Label with hotkeys
+    ui_column.add_flex_child(Label::dynamic(|data: &GrabData, _: &Env| {
+        if data.set_hot_key == true {
+            data.hotkey_new.join(" + ")
+        }else{
+            data.hotkey.join(" + ")
+        }
+    }), 1.0);
+    // label with errors
+    let error_label = Label::dynamic(|data: &GrabData, _: &Env| {
+        if data.input_hotkey_error.0 {
+            data.input_hotkey_error.1.clone()
+        } else {
+            String::new()
+        }
+    }).with_text_color(Color::rgb(0.8, 0.0, 0.0));
+    //button to go back
+    let back_button = Button::new("Back").on_click(move |_ctx, _data: &mut GrabData ,_env| {
+        _data.input_hotkey_error.0 = false;
+        _ctx.window().close();
+        let main_window = WindowDesc::new(build_ui())
+            .title("Screen grabbing Utility")
+            .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
+        _ctx.new_window(main_window);
+
+    });
+    let back_button =Button::dynamic(|data: & GrabData, _env| {
+        if data.set_hot_key {
+            "Reset".to_string()
+        } else {
+            "Back".to_string()
+        }
+    }).on_click(
+        move |_ctx, _data: &mut GrabData, _env| {
+            if _data.set_hot_key == true {
+                // edit
+                /* for s in _data.hotkey_new.clone() {
+                     println!("edit {}", s);
+                 }*/
+                _data.hotkey_new.clear();
+                _data.set_hot_key = false;
+                _data.input_hotkey_error.0 = false;
+
+            } else {
+                //no edit
+                _data.input_hotkey_error.0 = false;
+                _ctx.window().close();
+                let main_window = WindowDesc::new(build_ui())
+                    .title("Screen grabbing Utility")
+                    .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
+                _ctx.new_window(main_window);
+
+            }
+        }
+    );
+    ui_column.add_default_spacer();
+
+    ui_row.add_flex_child(ui_column,1.0);
+    ui_row.add_flex_child(error_label, 1.0);
+    ui_row.add_default_spacer();
+    ui_row.add_flex_child(back_button, 1.0);
+    ui_row.add_default_spacer();
+    //fusion.add_flex_child(ui_column,1.0);
+
+    ui_row.controller(Enter)
+}
 pub fn create_save_cancel_clipboard_buttons() -> impl Widget<GrabData> {
     let save_button = Button::new("Save").on_click(move |_ctx, _data: &mut GrabData ,_env| {
         if !_data.image_data_old.is_empty() {

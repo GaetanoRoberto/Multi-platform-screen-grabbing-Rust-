@@ -30,6 +30,7 @@ impl AppDelegate<GrabData> for Delegate {
             data.set_hot_key = false;
             data.annotation = Annotation::None;
             data.input_timer_error = (false,"".to_string());
+            data.input_hotkey_error = (false,"".to_string());
             let file = File::create("settings.json").unwrap();
             to_writer(file, data).unwrap();
             // the event keep processing and the window is closed
@@ -61,12 +62,19 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                     // capture and set the hotkey for screen grabbing
                     data.trigger_ui = !data.trigger_ui;
                     // avoid to add many times the same character if is being pressed
-                    if data.hotkey.is_empty() {
-                        data.hotkey.push(key_event.key.to_string());
-                    } else if data.hotkey.len() >= 1 && data.hotkey[data.hotkey.len()-1] != key_event.key.to_string() {
-                        data.hotkey.push(key_event.key.to_string());
+                    if data.hotkey_new.is_empty() {
+                        data.hotkey_new.push(key_event.key.to_string());
+                    } else if data.hotkey_new.len()>2{
+                        data.input_hotkey_error.0 = true;
+                        data.input_hotkey_error.1 = "Max 3 keys, confirm please".to_string();
+                    } else if data.hotkey_new.len() >= 1 && !data.hotkey_new.contains(&key_event.key.to_string())  {
+                        data.hotkey_new.push(key_event.key.to_string());
+                    }else{
+                        data.input_hotkey_error.0 = true;
+                        data.input_hotkey_error.1 = "Only distinct keys".to_string();
                     }
                 } else {
+
                     // check current combination of the hotkey
                     if data.hotkey[data.hotkey_sequence] == key_event.key.to_string() {
                         data.hotkey_sequence+=1;

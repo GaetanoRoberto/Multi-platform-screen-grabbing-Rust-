@@ -67,6 +67,8 @@ pub struct GrabData {
     positions: Vec<(f64,f64)>,
     #[data(ignore)]
     hotkey: Vec<String>,
+    #[data(ignore)]
+    hotkey_new: Vec<String>,
     hotkey_sequence: usize,
     set_hot_key: bool,
     delay: String,
