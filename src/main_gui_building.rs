@@ -644,7 +644,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
                 return "Click and Drag to Draw a Free Line: ".to_string();
             }
             Annotation::Highlighter => {
-                return "".to_string();
+                return "Click and Drag to Highlighting Something: ".to_string();
             }
             Annotation::Arrow => {
                 return "Click and Drag to Draw an Arrow: ".to_string();

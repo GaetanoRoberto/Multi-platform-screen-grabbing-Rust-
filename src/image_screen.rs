@@ -10,7 +10,7 @@ use druid::piet::PaintBrush::Fixed;
 use druid::platform_menus::mac::file::print;
 use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat, Label, ClipBox, Controller};
 use image::{DynamicImage, EncodableLayout, ImageBuffer, load_from_memory_with_format, Rgba};
-use image::imageops::FilterType;
+use image::imageops::{FilterType, overlay};
 use imageproc::drawing::{Canvas, draw_cross, draw_filled_rect, draw_hollow_circle, draw_hollow_circle_mut, draw_hollow_rect, draw_line_segment, draw_polygon, draw_text};
 use serde_json::{from_reader, to_writer};
 use crate::{main_gui_building::build_ui, constants, GrabData, Annotation};
@@ -19,9 +19,9 @@ use crate::main_gui_building::{create_annotation_buttons, create_edit_window, cr
 use rusttype::Font;
 use druid::{kurbo::Line, piet::StrokeStyle, kurbo::Shape, PaintCtx};
 use druid::Handled::No;
-use crate::constants::BORDER_WIDTH;
+use crate::constants::{BORDER_WIDTH, TRANSPARENCY};
 use std::f64::consts::PI;
-use druid::kurbo::Circle;
+use druid::kurbo::{BezPath, Circle};
 use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use image::codecs::pnm::ArbitraryTuplType::RGBAlpha;
 use serde_json::error::Category::Data;
@@ -219,39 +219,28 @@ impl Widget<GrabData> for ScreenshotWidget {
                         },
                         Annotation::Highlighter => {
                             // draw highliter
-                            let image = load_image(data);
+                            cropped_annotated_image = load_image(data);
+                            let mut transparent_image =  ImageBuffer::from_pixel(
+                                cropped_annotated_image.width(),
+                                cropped_annotated_image.height(),
+                                Rgba([0, 0, 0, 0]));
 
-                            // draw line with first and last position, then clear the vector
-                            let point1 = Point::new(data.positions[0].0, data.positions[0].1);
-                            let point2 = Point::new(data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+                            // get the highliter points
+                            let result = compute_highliter_points(data);
 
-                            // Define your margin and the two points representing the line segment
-                            let highlighter_width = 10.0;
+                            match result {
+                                Some((rect_point1,rect_point2,rect_point3,rect_point4)) => {
+                                    let poly = &[imageproc::point::Point::new(rect_point1.x as i32,rect_point1.y as i32),
+                                        imageproc::point::Point::new(rect_point2.x as i32,rect_point2.y as i32),
+                                        imageproc::point::Point::new(rect_point3.x as i32,rect_point3.y as i32),
+                                        imageproc::point::Point::new(rect_point4.x as i32,rect_point4.y as i32)];
 
-                            // Calculate the slope of the line
-                            let dx = point2.x - point1.x;
-                            let dy = point2.y - point1.y;
-                            let slope = dy / dx;
+                                    transparent_image = draw_polygon(&transparent_image, poly, Rgba([data.color.0, data.color.1, data.color.2, TRANSPARENCY]));
 
-                            // Calculate the angle of the line with respect to the horizontal axis
-                            let angle = slope.atan();
-
-                            // Calculate the change in x and y coordinates for the margin
-                            let delta_x = highlighter_width * (angle + PI / 2.0).cos();
-                            let delta_y = highlighter_width * (angle + PI / 2.0).sin();
-
-                            // Create the four vertices of the rectangle
-                            let rect_point1 = Point::new(point1.x + delta_x, point1.y + delta_y);
-                            let rect_point2 = Point::new(point1.x - delta_x, point1.y - delta_y);
-                            let rect_point3 = Point::new(point2.x - delta_x, point2.y - delta_y);
-                            let rect_point4 = Point::new(point2.x + delta_x, point2.y + delta_y);
-
-                            let poly = &[imageproc::point::Point::new(rect_point1.x as i32,rect_point1.y as i32),
-                                imageproc::point::Point::new(rect_point2.x as i32,rect_point2.y as i32),
-                                imageproc::point::Point::new(rect_point3.x as i32,rect_point3.y as i32),
-                                imageproc::point::Point::new(rect_point4.x as i32,rect_point4.y as i32)];
-                            cropped_annotated_image = DynamicImage::from(
-                                draw_polygon(&image,poly,Rgba([data.color.0, data.color.1, data.color.2, 60])));
+                                    overlay(&mut cropped_annotated_image, &transparent_image, 0, 0);
+                                }
+                                None => {}
+                            }
 
                         },
                         Annotation::Arrow => {
@@ -285,20 +274,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             }
                         },
                         Annotation::Text => {
-                            // draw text
-                            /*let image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
-                                .expect("Failed to load image from memory");
-
-                            let font_data: &[u8] = include_bytes!("../OpenSans-Semibold.ttf");
-                                //fs::read(Path::new(format!("{}{}",std::env::current_dir().unwrap().to_str().unwrap(),"\\OpenSans-Semibold.ttf").as_str())).unwrap().as_slice();
-                            let font: Font<'static> = Font::try_from_bytes(font_data).unwrap();
-                            // draw line with first and last position, then clear the vector
-                            cropped_annotated_image = DynamicImage::from(
-                                draw_text(&image,
-                                          Rgba([data.color.0, data.color.1, data.color.2, data.color.3]),
-                                          data.positions[0].0 as i32, data.positions[0].1 as i32,
-                                          rusttype::Scale::uniform(data.text_size as f32), &font, data.text_annotation.as_str()));*/
-
+                            // done in add_text button handler in main_gui_building
                         },
                     }
 
@@ -454,7 +430,23 @@ impl Widget<GrabData> for ScreenshotWidget {
                     }
                 }
             }
-            Annotation::Highlighter => {}
+            Annotation::Highlighter => {
+                let result = compute_highliter_points(data);
+                match result {
+                    Some((rect_point1,rect_point2,rect_point3,rect_point4)) => {
+                        let mut path = BezPath::new();
+                        path.move_to(rect_point1);
+                        path.line_to(rect_point2);
+                        path.line_to(rect_point3);
+                        path.line_to(rect_point4);
+
+                        border_color = Color::rgba8(data.color.0, data.color.1, data.color.2, TRANSPARENCY);
+
+                        paint_ctx.fill(path, &border_color);
+                    }
+                    None => {}
+                }
+            }
             Annotation::Arrow => {
                 let result = compute_arrow_points(data);
                 match result {
@@ -604,4 +596,36 @@ fn compute_arrow_points(data: &GrabData) -> Option<((Point,Point),(Point,Point),
 
     // main line point couple, first line point couple, second line point couple
     Some(((main_line_p0,main_line_p1),(arrow_l0_p0, arrow_l0_p1),(arrow_l1_p0, arrow_l1_p1)))
+}
+
+fn compute_highliter_points(data: &GrabData) -> Option<(Point,Point,Point,Point)> {
+    if data.positions.is_empty() {
+        return None;
+    }
+    // draw line with first and last position, then clear the vector
+    let point1 = Point::new(data.positions[0].0, data.positions[0].1);
+    let point2 = Point::new(data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+
+    // Define your margin and the two points representing the line segment
+    let highlighter_width = 10.0;
+
+    // Calculate the slope of the line
+    let dx = point2.x - point1.x;
+    let dy = point2.y - point1.y;
+    let slope = dy / dx;
+
+    // Calculate the angle of the line with respect to the horizontal axis
+    let angle = slope.atan();
+
+    // Calculate the change in x and y coordinates for the margin
+    let delta_x = highlighter_width * (angle + PI / 2.0).cos();
+    let delta_y = highlighter_width * (angle + PI / 2.0).sin();
+
+    // Create the four vertices of the rectangle
+    let rect_point1 = Point::new(point1.x + delta_x, point1.y + delta_y);
+    let rect_point2 = Point::new(point1.x - delta_x, point1.y - delta_y);
+    let rect_point3 = Point::new(point2.x - delta_x, point2.y - delta_y);
+    let rect_point4 = Point::new(point2.x + delta_x, point2.y + delta_y);
+
+    Some((rect_point1,rect_point2,rect_point3,rect_point4))
 }

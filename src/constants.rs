@@ -6,3 +6,4 @@ pub const MAIN_WINDOW_WIDTH : f64 = 600.0;
 pub const MAIN_WINDOW_HEIGHT : f64 = 400.0;
 pub const BORDER_WIDTH : f64 = 1.0;
 pub const OPACITY: f64 = 0.05;
+pub const TRANSPARENCY: u8 = 60;
