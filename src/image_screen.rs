@@ -23,6 +23,7 @@ use crate::constants::BORDER_WIDTH;
 use std::f64::consts::PI;
 use druid::kurbo::Circle;
 use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
+use image::codecs::pnm::ArbitraryTuplType::RGBAlpha;
 use serde_json::error::Category::Data;
 
 pub struct ScreenshotWidget;
@@ -218,22 +219,39 @@ impl Widget<GrabData> for ScreenshotWidget {
                         },
                         Annotation::Highlighter => {
                             // draw highliter
-                            cropped_annotated_image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
-                                .expect("Failed to load image from memory");
-                            /*draw_line_segment(&cropped_annotated_image,
-                                              (data.positions[pos_index].0 as f32, data.positions[pos_index].1 as f32),
-                                              (data.positions[pos_index+1].0 as f32, data.positions[pos_index+1].1 as f32),
-                                              Rgba([data.color.0, data.color.1, data.color.2, data.color.3]))*/
-                            // draw highliter with first and last position, then clear the vector
-                            for pos_index in 0..(data.positions.len()-1) {
-                                let rectangle = imageproc::rect::Rect::at(data.positions[pos_index].0 as i32, data.positions[pos_index].1 as i32)
-                                    .of_size((data.positions[pos_index+1].0 - data.positions[pos_index].0) as u32, 20);
-                                cropped_annotated_image = DynamicImage::from(
-                                    draw_polygon(&cropped_annotated_image,
-                                                 &[imageproc::point::Point::new(data.positions[pos_index].0 as i32, data.positions[pos_index].1 as i32),
-                                                     imageproc::point::Point::new((data.positions[pos_index+1].0 - data.positions[pos_index].0) as i32, 20)],
-                                                 Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
-                            }
+                            let image = load_image(data);
+
+                            // draw line with first and last position, then clear the vector
+                            let point1 = Point::new(data.positions[0].0, data.positions[0].1);
+                            let point2 = Point::new(data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+
+                            // Define your margin and the two points representing the line segment
+                            let highlighter_width = 10.0;
+
+                            // Calculate the slope of the line
+                            let dx = point2.x - point1.x;
+                            let dy = point2.y - point1.y;
+                            let slope = dy / dx;
+
+                            // Calculate the angle of the line with respect to the horizontal axis
+                            let angle = slope.atan();
+
+                            // Calculate the change in x and y coordinates for the margin
+                            let delta_x = highlighter_width * (angle + PI / 2.0).cos();
+                            let delta_y = highlighter_width * (angle + PI / 2.0).sin();
+
+                            // Create the four vertices of the rectangle
+                            let rect_point1 = Point::new(point1.x + delta_x, point1.y + delta_y);
+                            let rect_point2 = Point::new(point1.x - delta_x, point1.y - delta_y);
+                            let rect_point3 = Point::new(point2.x - delta_x, point2.y - delta_y);
+                            let rect_point4 = Point::new(point2.x + delta_x, point2.y + delta_y);
+
+                            let poly = &[imageproc::point::Point::new(rect_point1.x as i32,rect_point1.y as i32),
+                                imageproc::point::Point::new(rect_point2.x as i32,rect_point2.y as i32),
+                                imageproc::point::Point::new(rect_point3.x as i32,rect_point3.y as i32),
+                                imageproc::point::Point::new(rect_point4.x as i32,rect_point4.y as i32)];
+                            cropped_annotated_image = DynamicImage::from(
+                                draw_polygon(&image,poly,Rgba([data.color.0, data.color.1, data.color.2, 60])));
 
                         },
                         Annotation::Arrow => {
