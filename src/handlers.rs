@@ -5,6 +5,7 @@ use druid::widget::{Controller,Flex};
 use serde_json::to_writer;
 use crate::{Annotation, GrabData};
 use crate::main_gui_building::{build_ui, start_screening};
+use crate::utilities::reset_data;
 
 pub struct Delegate;
 
@@ -146,23 +147,4 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
             }
         }
     }
-}
-
-pub fn reset_data(data: &mut GrabData) {
-    // set data fields to their initial state
-    data.image_data_old = vec![];
-    data.image_data_new = vec![];
-    data.press = false;
-    data.first_screen = true;
-    data.scale_factor = 1.0;
-    data.positions = vec![];
-    data.offsets = vec![];
-    data.hotkey_new = vec![];
-    data.hotkey_sequence = 0;
-    data.set_hot_key = false;
-    data.input_timer_error = (false,"Invalid Input: Only Positive Number are Allowed.".to_string());
-    data.input_hotkey_error = (false,"Invalid Input: Wrong Hotkey.".to_string());
-    data.trigger_ui = false;
-    data.annotation = Annotation::None;
-    data.text_annotation = "".to_string();
 }

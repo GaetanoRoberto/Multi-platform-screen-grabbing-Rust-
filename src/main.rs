@@ -3,6 +3,7 @@ mod constants;
 mod main_gui_building;
 mod handlers;
 mod input_field;
+mod utilities;
 
 use std::env;
 use std::arch::x86_64::_addcarry_u32;
