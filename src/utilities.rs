@@ -130,7 +130,7 @@ pub fn compute_highlighter_points(data: &GrabData) -> Option<(Point, Point, Poin
     let point2 = Point::new(data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
 
     // Define your margin and the two points representing the line segment
-    let highlighter_width = 10.0;
+    let highlighter_width = data.highlighter_width;
 
     // Calculate the slope of the line
     let dx = point2.x - point1.x;

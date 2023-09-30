@@ -83,7 +83,8 @@ pub struct GrabData {
     annotation: Annotation,
     color: (u8,u8,u8,u8),
     text_annotation: String,
-    text_size : f64
+    text_size : f64,
+    highlighter_width: f64
 }
 
 fn main() -> Result<(), PlatformError> {
