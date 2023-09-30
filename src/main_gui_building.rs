@@ -14,7 +14,7 @@ use serde_json::{from_reader, to_writer};
 use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT, OPACITY};
 use crate::{Annotation, GrabData};
 use crate::image_screen::{image_to_buffer, load_image, ScreenshotWidget};
-use crate::handlers::{Delegate, Enter, NumericTextBoxController};
+use crate::handlers::{Delegate, Enter, NumericTextBoxController, reset_data};
 use crate::input_field::PositiveNumberFormatter;
 use native_dialog::{FileDialog};
 use rusttype::Font;
@@ -24,10 +24,7 @@ use crate::grab_data_derived_lenses::hotkey;
 
 pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut GrabData) {
     // reset completely data in order to take a screenshot from scratch
-    data.annotation = Annotation::None;
-    data.first_screen = true;
-    data.image_data_old = vec![];
-    data.image_data_new = vec![];
+    reset_data(data);
     let screen = Screen::all().unwrap()[monitor_index];
     let rect = druid::Screen::get_monitors()[monitor_index].virtual_rect();
     ctx.window().close();

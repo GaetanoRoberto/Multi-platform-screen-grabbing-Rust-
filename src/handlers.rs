@@ -21,17 +21,8 @@ impl AppDelegate<GrabData> for Delegate {
             // TODO: set initial value for parameters who need it
             // Handle the window close event
             println!("Closing the window");
-            // cancel all image data
-            data.first_screen = true;
-            data.offsets = vec![];
-            data.positions = vec![];
-            data.scale_factor = 1.0;
-            data.image_data_old = vec![];
-            data.image_data_new = vec![];
-            data.set_hot_key = false;
-            data.annotation = Annotation::None;
-            data.input_timer_error = (false,"".to_string());
-            data.input_hotkey_error = (false,"".to_string());
+            // reset data
+            reset_data(data);
             let file = File::create("settings.json").unwrap();
             to_writer(file, data).unwrap();
             // the event keep processing and the window is closed
@@ -155,4 +146,23 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
             }
         }
     }
+}
+
+pub fn reset_data(data: &mut GrabData) {
+    // set data fields to their initial state
+    data.image_data_old = vec![];
+    data.image_data_new = vec![];
+    data.press = false;
+    data.first_screen = true;
+    data.scale_factor = 1.0;
+    data.positions = vec![];
+    data.offsets = vec![];
+    data.hotkey_new = vec![];
+    data.hotkey_sequence = 0;
+    data.set_hot_key = false;
+    data.input_timer_error = (false,"Invalid Input: Only Positive Number are Allowed.".to_string());
+    data.input_hotkey_error = (false,"Invalid Input: Wrong Hotkey.".to_string());
+    data.trigger_ui = false;
+    data.annotation = Annotation::None;
+    data.text_annotation = "".to_string();
 }
