@@ -62,6 +62,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                         data.input_hotkey_error.1 = "Max 3 keys, confirm please".to_string();
                     } else if data.hotkey_new.len() >= 1 && !data.hotkey_new.contains(&key_event.key.to_string())  {
                         data.hotkey_new.push(key_event.key.to_string());
+                        data.input_hotkey_error = (false,"".to_string());
                     }else{
                         data.input_hotkey_error.0 = true;
                         data.input_hotkey_error.1 = "Only distinct keys".to_string();
