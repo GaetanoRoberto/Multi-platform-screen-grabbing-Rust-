@@ -496,8 +496,9 @@ pub fn create_annotation_buttons() -> impl Widget<GrabData> {
     ui_row2.add_flex_child(Button::from_label(Label::new("⬤")
         .with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3)))
                                .on_click(|ctx, data: &mut GrabData, _env| {
+                                   let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
                                    ctx.window().close();
-                                   ctx.new_window(WindowDesc::new(create_color_buttons()).window_size((250.0,200.0)).show_titlebar(false).resizable(false));
+                                   ctx.new_window(WindowDesc::new(create_color_buttons()).window_size((250.0,200.0)).show_titlebar(false).resizable(false).set_position((rect.x0,rect.y0)));
                                }), 1.0);
 
     Flex::column().with_child(ui_row1).with_child(ui_row2)
