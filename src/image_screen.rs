@@ -14,7 +14,7 @@ use image::imageops::{FilterType, overlay};
 use imageproc::drawing::{Canvas, draw_cross, draw_filled_rect, draw_hollow_circle, draw_hollow_circle_mut, draw_hollow_rect, draw_line_segment, draw_polygon, draw_text};
 use serde_json::{from_reader, to_writer};
 use crate::{main_gui_building::build_ui, constants, GrabData, Annotation};
-use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,LIMIT_PROPORTION,SCALE_FACTOR};
+use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,SCALE_FACTOR};
 use crate::main_gui_building::{create_annotation_buttons, create_edit_window, create_edit_window_widgets, create_save_cancel_clipboard_buttons, create_selection_window};
 use rusttype::Font;
 use druid::{kurbo::Line, piet::StrokeStyle, kurbo::Shape, PaintCtx};
@@ -25,7 +25,7 @@ use druid::kurbo::{BezPath, Circle};
 use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use image::codecs::pnm::ArbitraryTuplType::RGBAlpha;
 use serde_json::error::Category::Data;
-use crate::utilities::{rescale_coordinates, make_rectangle_from_points, load_image, compute_circle_center_radius, compute_arrow_points, image_to_buffer, compute_highlighter_points};
+use crate::utilities::{rescale_coordinates, make_rectangle_from_points, load_image, compute_circle_center_radius, compute_arrow_points, image_to_buffer, compute_highlighter_points, resize_image};
 
 pub struct ScreenshotWidget;
 
@@ -59,7 +59,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                 // first screen case
                 if data.press && data.first_screen {
                     data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
-                    println!("coordinates: {:?}",(mouse_event.window_pos.x,mouse_event.window_pos.y));
+                    //println!("coordinates: {:?}",(mouse_event.window_pos.x,mouse_event.window_pos.y));
                 }
                 // two or more case
                 if data.press && !data.first_screen {
@@ -118,11 +118,13 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     rgba_image.clone().height() as usize,
                                 );
                                 let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+                                let (image_width,image_height) = resize_image(dynamic_image,data);
+
                                 ctx.window().close();
                                 ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop Further, choose if save the image as it is or undo:"))
-                                    .with_child(Image::new(buffer))
+                                    .with_child(SizedBox::new(Image::new(buffer)).width(image_width).height(image_height))
                                     .with_child(create_save_cancel_clipboard_buttons())).set_position((rect.x0,rect.y0))
-                                    .window_size(Size::new( 3.0 * dynamic_image.width() as f64 * data.scale_factor,(3.0 * dynamic_image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 4.0)))
+                                    .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 4.0)))
                                     .resizable(false));
 
                                 data.positions = vec![];
@@ -134,11 +136,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 (max_x - min_x) as u32,
                                 (max_y - min_y) as u32
                             );
-                            if cropped_annotated_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || cropped_annotated_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
+                            /*if cropped_annotated_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || cropped_annotated_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
                                 data.scale_factor = SCALE_FACTOR;
                             } else {
                                 data.scale_factor = 1.0;
-                            }
+                            }*/
                             // cropped_annotated_image = cropped_annotated_image.resize((cropped_annotated_image.width() as f64 * data.scale_factor) as u32, (cropped_annotated_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
                         },
@@ -291,11 +293,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                     }
 
                 } else {
-                    if dynamic_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || dynamic_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
+                    /*if dynamic_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || dynamic_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
                         data.scale_factor = SCALE_FACTOR;
                     } else {
                         data.scale_factor = 1.0;
-                    }
+                    }*/
 
                     // dynamic_image = dynamic_image.resize((dynamic_image.width() as f64 * data.scale_factor) as u32, (dynamic_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
 
@@ -306,12 +308,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                     data.image_data_old = image_to_buffer(dynamic_image);
 
                     data.first_screen = false;
-                }
-
-                // increase size of image for images too small
-                while (window_width as f64 * data.scale_factor) <= BUTTON_WIDTH * 2.0 + 10.0 {
-                    println!("Increment");
-                    data.scale_factor+=(BUTTON_WIDTH * 2.0 + 10.0)/(window_width as f64);
                 }
 
                 if data.annotation != Annotation::Text {

@@ -1,11 +1,13 @@
+use std::cell::RefCell;
 use std::fs;
 use std::fs::File;
-use druid::{AppDelegate, commands, DelegateCtx, Env, Event, EventCtx, InternalEvent, Selector, TimerToken, Widget, WindowDesc, WindowState};
-use druid::widget::{Controller,Flex};
+use druid::{AppDelegate, BoxConstraints, commands, DelegateCtx, Env, Event, EventCtx, ImageBuf, InternalEvent, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Selector, TimerToken, UpdateCtx, Widget, WindowDesc, WindowState};
+use druid::piet::ImageFormat;
+use druid::widget::{Controller, Flex, Image};
 use serde_json::to_writer;
 use crate::{Annotation, GrabData};
 use crate::main_gui_building::{build_ui, start_screening};
-use crate::utilities::reset_data;
+use crate::utilities::{load_image, reset_data, resize_image};
 
 pub struct Delegate;
 
@@ -147,5 +149,89 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
                 child.event(ctx, event, data, env);
             }
         }
+    }
+}
+
+pub struct ImageSizeWidget {
+    width: f64,
+    height: f64,
+}
+
+impl ImageSizeWidget {
+    // Constructor function to create an instance with default values
+    pub fn new() -> Self {
+        ImageSizeWidget {
+            width: 0.0,  // Default width
+            height: 0.0, // Default height
+        }
+    }
+}
+
+impl Widget<GrabData> for ImageSizeWidget {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut GrabData, env: &Env) {
+        match event {
+            Event::Command(cmd) => {
+                if cmd.is(druid::commands::SHOW_PREFERENCES) {
+                    // Handle the custom command here
+                    data.image_size.0 = self.width;
+                    data.image_size.1 = self.height;
+                    println!("{:?}", data.image_size);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &GrabData, env: &Env) {
+        ctx.submit_command(druid::commands::SHOW_PREFERENCES);
+        //println!("send command");
+    }
+
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &GrabData, data: &GrabData, env: &Env) {
+    }
+
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &GrabData, env: &Env) -> druid::Size {
+        bc.max()
+    }
+
+    fn paint(&mut self, paint_ctx: &mut PaintCtx, data: &GrabData, env: &Env) {
+        let mut image = load_image(data);
+        let rgba_image = image.to_rgba8();
+
+        let image_buf = ImageBuf::from_raw(
+            rgba_image.clone().into_raw(),
+            ImageFormat::RgbaSeparate,
+            rgba_image.clone().width() as usize,
+            rgba_image.clone().height() as usize,
+        );
+
+        // Create an Image widget with your image
+        let mut image = Image::new(image_buf);
+
+        let image_width = rgba_image.width() as f64;
+        let image_height = rgba_image.height() as f64;
+
+        // Calculate the size of the image within the constraints of the Sized Box
+        let constraints = paint_ctx.size(); // Get the constraints (size of the SizedBox)
+        let mut scaled_width = image_width;
+        let mut scaled_height = image_height;
+
+        // Calculate the scaled size while preserving aspect ratio
+        if image_width > constraints.width || image_height > constraints.height {
+            let width_ratio = constraints.width / image_width;
+            let height_ratio = constraints.height / image_height;
+            let scale_factor = width_ratio.min(height_ratio);
+
+            scaled_width *= scale_factor;
+            scaled_height *= scale_factor;
+        }
+
+        image.paint(paint_ctx, data, env);
+
+        // Store the actual rendered size of the image
+        self.width = scaled_width;
+        self.height = scaled_height;
+
+        println!("box {}\nimage {:?}",constraints,(self.width,self.height));
     }
 }

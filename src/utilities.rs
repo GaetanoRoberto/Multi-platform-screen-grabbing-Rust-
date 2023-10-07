@@ -3,23 +3,30 @@
 use std::f64::consts::PI;
 use druid::{EventCtx, MouseEvent, Point, Vec2};
 use image::{DynamicImage, load_from_memory_with_format};
+use screenshots::Screen;
 use crate::{Annotation, GrabData};
+use crate::constants::{BUTTON_HEIGHT, NORMAL_BIG_IMAGE_LIMIT, SMALL_IMAGE_LIMIT};
+use image::imageops::FilterType;
 
 pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &mut GrabData) {
-    let mut image = load_image(data);
+    //let mut image = load_image(data);
     // Calculate the offset to center mouse positions in the Image
     let widget_size = ctx.size();
-    let image_width = image.width() as f64 * data.scale_factor;
-    let image_height = image.height() as f64 * data.scale_factor;
+    println!("rescale window {}",widget_size);
+    let image_width = data.image_size.0;
+    let image_height = data.image_size.1;
     let x_offset = (widget_size.width - image_width) / 2.0;
     let y_offset = (widget_size.height - image_height) / 2.0;
+    //println!("parent {} {}",widget_size.width, widget_size.height);
+    //println!("{} {}",image_width,image_height);
     // save corresponding offset to subtract in rectangle paint function
     data.offsets.push(<(f64, f64)>::from((x_offset,y_offset)));
     // Adjust mouse coordinates
     let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
-    centered_pos.x = centered_pos.x / data.scale_factor;
-    centered_pos.y = centered_pos.y / data.scale_factor;
-    println!("centered coordinates: {}",centered_pos);
+    //centered_pos.x = centered_pos.x / data.scale_factors.0;
+    //centered_pos.y = centered_pos.y / data.scale_factors.1;
+    //println!("Coordinates: {}",mouse_event.pos);
+    //println!("centered coordinates: {}",centered_pos);
     data.positions.push(<(f64, f64)>::from(centered_pos));
 }
 
@@ -153,6 +160,40 @@ pub fn compute_highlighter_points(data: &GrabData) -> Option<(Point, Point, Poin
     Some((rect_point1,rect_point2,rect_point3,rect_point4))
 }
 
+// Image Resizing
+pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) {
+    let screen = Screen::all().unwrap()[data.monitor_index];
+    let mut scale_factor_x ;
+    let mut scale_factor_y;
+
+    if image.width() >= (screen.display_info.width as f64 * NORMAL_BIG_IMAGE_LIMIT) as u32 || image.height() >= (screen.display_info.height as f64 * NORMAL_BIG_IMAGE_LIMIT) as u32 {
+        // NORMAL OR BIG IMAGE (>= 50% of the screen)
+        scale_factor_x = image.width() as f64 / (screen.display_info.width as f64 * 1.4);
+        scale_factor_y = image.height() as f64 / (screen.display_info.height as f64 * 1.4);
+
+    } else if image.width() <= (screen.display_info.width as f64 * SMALL_IMAGE_LIMIT) as u32 && image.height() <= (screen.display_info.height as f64 * SMALL_IMAGE_LIMIT) as u32 {
+        // VERY SMALL IMAGE (<= 20% of the screen)
+        println!("small small");
+        scale_factor_x = 0.25;
+        scale_factor_y = 0.25;
+        image = image.resize((screen.display_info.width / 4), (screen.display_info.height / 4), FilterType::Nearest);
+    }else{
+        // SMALL IMAGE (20% of the screen < size < 50% of the screen)
+        println!("small");
+        scale_factor_x = (image.width() as f64 * 1.4) / (screen.display_info.width as f64);
+        scale_factor_y = (image.height() as f64 * 1.4) / (screen.display_info.height as f64);
+    }
+
+    // assign scale factors to data
+    data.scale_factors.0 = scale_factor_x;
+    data.scale_factors.1 = scale_factor_y;
+
+    let image_width = (screen.display_info.width as f64) * scale_factor_x;
+    let image_height = (screen.display_info.height as f64 - 7.0 * BUTTON_HEIGHT) * scale_factor_y;
+
+    (image_width,image_height)
+}
+
 // Reset Data Function
 pub fn reset_data(data: &mut GrabData) {
     // set data fields to their initial state
@@ -160,7 +201,7 @@ pub fn reset_data(data: &mut GrabData) {
     data.image_data_new = vec![];
     data.press = false;
     data.first_screen = true;
-    data.scale_factor = 1.0;
+    data.scale_factors = (1.0,1.0);
     data.positions = vec![];
     data.offsets = vec![];
     data.hotkey_new = vec![];

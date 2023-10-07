@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::fs::File;
 use std::time::Duration;
-use druid::widget::{Button, Controller, Flex, Image, Label, TextBox, ValueTextBox, ZStack};
+use druid::widget::{Button, Controller, Flex, Image, Label, SizedBox, TextBox, ValueTextBox, ZStack};
 use druid::{AppLauncher, Color, Command, Env, Event, EventCtx, ImageBuf, KbKey, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::ImageFormat;
 use druid_widget_nursery::{AdvancedSlider, DropdownSelect, WidgetExt as OtherWidgetExt};
@@ -13,9 +13,9 @@ use screenshots::Screen;
 use serde_json::{from_reader, to_writer};
 use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT, OPACITY};
 use crate::{Annotation, GrabData};
-use crate::utilities::{image_to_buffer, load_image};
+use crate::utilities::{image_to_buffer, load_image, resize_image};
 use crate::image_screen::ScreenshotWidget;
-use crate::handlers::{Delegate, Enter, NumericTextBoxController};
+use crate::handlers::{Delegate, Enter, ImageSizeWidget, NumericTextBoxController};
 use crate::utilities::reset_data;
 use crate::input_field::PositiveNumberFormatter;
 use native_dialog::{FileDialog};
@@ -669,46 +669,50 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
         }
     });
 
-    let dyn_image = load_image(data);
+    let image = load_image(data);
+    let rgba_image = image.to_rgba8();
 
-    let image = dyn_image.resize((dyn_image.width() as f64 * data.scale_factor) as u32, (dyn_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest).to_rgba8();
+    //let image = dyn_image.resize((dyn_image.width() as f64 * data.scale_factor) as u32, (dyn_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest).to_rgba8();
+    let (image_width,image_height) = resize_image(image,data);
 
     let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
     let image_buf = ImageBuf::from_raw(
-        image.clone().into_raw(),
+        rgba_image.clone().into_raw(),
         ImageFormat::RgbaSeparate,
-        image.clone().width() as usize,
-        image.clone().height() as usize,
+        rgba_image.clone().width() as usize,
+        rgba_image.clone().height() as usize,
     );
-
+    println!("window {}",Size::new( image_width,(image_height + BUTTON_HEIGHT * 4.0)));
     ctx.window().close();
     ctx.new_window(
         WindowDesc::new(
             Flex::column().with_child(description_label).with_child(
                 Flex::column()
                     .with_child(
-                        ZStack::new(Image::new(image_buf))
-                            .with_centered_child(ScreenshotWidget)
+                        SizedBox::new(ZStack::new(ImageSizeWidget::new())
+                            .with_centered_child(ScreenshotWidget)).width(image_width).height(image_height)
                     )
             ).with_child(create_edit_window_widgets(data)).controller(Enter))
             .set_position((rect.x0,rect.y0))
-            .window_size(Size::new( image.width() as f64 * data.scale_factor,(image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 6.0)))
+            .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 4.0)))
+            .with_min_size(Size::new( 5.0 * BUTTON_WIDTH  ,3.0* BUTTON_HEIGHT ))
             .resizable(true))
 }
 
 
 pub fn create_selection_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
-    let dyn_image = load_image(data);
+    let mut image = load_image(data);
+    let rgba_image = image.to_rgba8();
 
-    let image = dyn_image.resize((dyn_image.width() as f64 * data.scale_factor) as u32, (dyn_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest).to_rgba8();
+    let (image_width,image_height) = resize_image(image,data);
 
     let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
     let image_buf = ImageBuf::from_raw(
-        image.clone().into_raw(),
+        rgba_image.clone().into_raw(),
         ImageFormat::RgbaSeparate,
-        image.clone().width() as usize,
-        image.clone().height() as usize,
+        rgba_image.clone().width() as usize,
+        rgba_image.clone().height() as usize,
     );
 
     ctx.window().close();
@@ -716,11 +720,12 @@ pub fn create_selection_window(ctx: &mut EventCtx, data: &mut GrabData) {
         WindowDesc::new(
             Flex::column().with_child(
                 Flex::column()
-                    .with_child(Image::new(image_buf))
+                    .with_child( SizedBox::new(ImageSizeWidget::new()).width(image_width).height(image_height))
             ).with_child(Flex::column().with_child(create_save_cancel_clipboard_buttons())
                 .with_child(create_annotation_buttons())).controller(Enter))
             .set_position((rect.x0,rect.y0))
-            .window_size(Size::new( image.width() as f64 * data.scale_factor,(image.height() as f64 * data.scale_factor + BUTTON_HEIGHT * 6.0)))
+            .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 7.0)))
+            .with_min_size(Size::new( 5.0 * BUTTON_WIDTH  ,3.0* BUTTON_HEIGHT ))
             .resizable(true))
 }
 
