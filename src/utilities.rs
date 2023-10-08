@@ -12,7 +12,7 @@ pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &
     let mut image = load_image(data);
     // Calculate the offset to center mouse positions in the Image
     let widget_size = ctx.size();
-    println!("rescale window {}",widget_size);
+    //println!("rescale window {}",widget_size);
     let image_width = data.image_size.0;
     let image_height = data.image_size.1;
     let x_offset = (widget_size.width - image_width) / 2.0;
@@ -20,7 +20,7 @@ pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &
     let width_scale = image_width / widget_size.width;
     let height_scale = image_height / widget_size.height;
     //println!("parent {} {}",widget_size.width, widget_size.height);
-    println!("offswt {} {}",x_offset,y_offset);
+    //println!("offswt {} {}",x_offset,y_offset);
     // save corresponding offset to subtract in rectangle paint function
     data.offsets.push(<(f64, f64)>::from((x_offset,y_offset)));
     // Adjust mouse coordinates

@@ -97,6 +97,14 @@ impl Widget<GrabData> for ScreenshotWidget {
                     //println!("minx {} maxx {} miny {} maxy {}",min_x,max_x,min_y,max_y);
                     let image = screen.capture_area(min_x + BORDER_WIDTH as i32, min_y + BORDER_WIDTH as i32, (max_x - (min_x + 2*BORDER_WIDTH as i32)) as u32, (max_y - (min_y + 2*BORDER_WIDTH as i32)) as u32).unwrap();
                     let buffer = image.to_png(None).unwrap();
+                    /*min_x = (min_x as f64 * data.scale_factors.0) as i32;
+                    max_x = (max_x as f64 * data.scale_factors.0) as i32;
+                    min_y = (min_y as f64 * data.scale_factors.1) as i32;
+                    max_y = (max_y as f64 * data.scale_factors.1) as i32;
+                    for position in data.positions.iter_mut() {
+                        position.0 = position.0 * data.scale_factors.0;
+                        position.1 = position.1 * data.scale_factors.1;
+                    } */
                     data.image_data_old = buffer;
                     // empty positions
                     data.positions = vec![];
@@ -110,7 +118,8 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                     match data.annotation {
                         Annotation::None => {
-                            if min_x < 0 || min_y < 0 || (max_x - min_x) <=0 || (max_y - min_y) <=0 {
+                            if min_x < 0 || min_y < 0 || ((max_x - min_x) as f64 * data.scale_factors.0) as u32 <= 0
+                                || ((max_y - min_y) as f64 * data.scale_factors.1) as u32 <=0 {
                                 let rgba_image = dynamic_image.to_rgba8();
                                 let buffer = ImageBuf::from_raw(
                                     rgba_image.clone().into_raw(),
@@ -122,7 +131,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 let (image_width,image_height) = resize_image(dynamic_image,data);
 
                                 ctx.window().close();
-                                ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop Further, choose if save the image as it is or undo:"))
+                                ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop: Image too Small. Choose if save the image as it is or undo:"))
                                     .with_child(SizedBox::new(Image::new(buffer)).width(image_width).height(image_height))
                                     .with_child(create_save_cancel_clipboard_buttons())).set_position((rect.x0,rect.y0))
                                     .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 4.0)))
@@ -162,13 +171,14 @@ impl Widget<GrabData> for ScreenshotWidget {
                             let image = load_image(data);
 
                             // draw line with first and last position, then clear the vector
-                            let p0 = (data.positions[0].0, data.positions[0].1);
-                            let p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+                            let p0 = (data.positions[0].0 + data.offsets[0].0, data.positions[0].1 + data.offsets[0].1);
+                            let p1 = (data.positions[data.positions.len()-1].0 + data.offsets[data.offsets.len()-1].0,
+                                      data.positions[data.positions.len()-1].1 + data.offsets[data.offsets.len()-1].1);
 
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&image,
-                                                  (p0.0 as f32, p0.1 as f32),
-                                                  (p1.0 as f32, p1.1 as f32),
+                                                  ((p0.0 * data.scale_factors.0) as f32, (p0.1 * data.scale_factors.1) as f32),
+                                                  ((p1.0 * data.scale_factors.0) as f32, (p1.1 * data.scale_factors.1) as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
                         },
@@ -182,8 +192,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                             // draw line with first and last position, then clear the vector
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&image,
-                                                  (line0_p0.0 as f32, line0_p0.1 as f32),
-                                                  (line0_p1.0 as f32, line0_p1.1 as f32),
+                                                  ((line0_p0.0 * data.scale_factors.0) as f32, (line0_p0.1 * data.scale_factors.1) as f32),
+                                                  ((line0_p1.0 * data.scale_factors.0) as f32, (line0_p1.1 * data.scale_factors.1) as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
                             let line1_p0 = (data.positions[0].0, data.positions[data.positions.len()-1].1);
@@ -192,8 +202,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                             // draw line with first and last position, then clear the vector
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&cropped_annotated_image,
-                                                  (line1_p0.0 as f32, line1_p0.1 as f32),
-                                                  (line1_p1.0 as f32, line1_p1.1 as f32),
+                                                  ((line1_p0.0 * data.scale_factors.0) as f32, (line1_p0.1 * data.scale_factors.1) as f32),
+                                                  ((line1_p1.0 * data.scale_factors.0) as f32, (line1_p1.1 * data.scale_factors.1) as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
                         },
@@ -217,8 +227,8 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                                 cropped_annotated_image = DynamicImage::from(
                                     draw_line_segment(&cropped_annotated_image,
-                                                      (line_p0.0 as f32, line_p0.1 as f32),
-                                                      (line_p1.0 as f32, line_p1.1 as f32),
+                                                      ((line_p0.0 * data.scale_factors.0) as f32, (line_p0.1 * data.scale_factors.1) as f32),
+                                                      ((line_p1.0 * data.scale_factors.0) as f32, (line_p1.1 * data.scale_factors.1) as f32),
                                                       Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
                             }
 
@@ -390,8 +400,9 @@ impl Widget<GrabData> for ScreenshotWidget {
             }
             Annotation::Line => {
                 if !data.positions.is_empty() {
-                    let p0 = (data.positions[0].0, data.positions[0].1);
-                    let p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+                    let p0 = (data.positions[0].0 + data.offsets[0].0, data.positions[0].1 + data.offsets[0].1);
+                    let p1 = (data.positions[data.positions.len()-1].0 + data.offsets[data.offsets.len()-1].0,
+                              data.positions[data.positions.len()-1].1 + data.offsets[data.offsets.len()-1].1);
 
                     let line_shape = Line::new(p0,p1);
 
