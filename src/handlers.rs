@@ -152,7 +152,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
     }
 }
 
-pub struct ImageSizeWidget {
+/*pub struct ImageSizeWidget {
     width: f64,
     height: f64,
 }
@@ -234,4 +234,4 @@ impl Widget<GrabData> for ImageSizeWidget {
 
         println!("box {}\nimage {:?}",constraints,(self.width,self.height));
     }
-}
+}*/

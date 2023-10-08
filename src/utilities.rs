@@ -9,7 +9,7 @@ use crate::constants::{BUTTON_HEIGHT, NORMAL_BIG_IMAGE_LIMIT, SMALL_IMAGE_LIMIT}
 use image::imageops::FilterType;
 
 pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &mut GrabData) {
-    //let mut image = load_image(data);
+    let mut image = load_image(data);
     // Calculate the offset to center mouse positions in the Image
     let widget_size = ctx.size();
     println!("rescale window {}",widget_size);
@@ -17,14 +17,16 @@ pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &
     let image_height = data.image_size.1;
     let x_offset = (widget_size.width - image_width) / 2.0;
     let y_offset = (widget_size.height - image_height) / 2.0;
+    let width_scale = image_width / widget_size.width;
+    let height_scale = image_height / widget_size.height;
     //println!("parent {} {}",widget_size.width, widget_size.height);
-    //println!("{} {}",image_width,image_height);
+    println!("offswt {} {}",x_offset,y_offset);
     // save corresponding offset to subtract in rectangle paint function
     data.offsets.push(<(f64, f64)>::from((x_offset,y_offset)));
     // Adjust mouse coordinates
     let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
-    //centered_pos.x = centered_pos.x / data.scale_factors.0;
-    //centered_pos.y = centered_pos.y / data.scale_factors.1;
+    centered_pos.x = centered_pos.x * width_scale;
+    centered_pos.y = centered_pos.y * height_scale;
     //println!("Coordinates: {}",mouse_event.pos);
     //println!("centered coordinates: {}",centered_pos);
     data.positions.push(<(f64, f64)>::from(centered_pos));
@@ -184,14 +186,27 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
         scale_factor_y = (image.height() as f64 * 1.4) / (screen.display_info.height as f64);
     }
 
+    let aspect_ratio = image.width() as f64 / image.height() as f64;
+    let desired_width = (screen.display_info.width as f64) * scale_factor_x;
+    let desired_height = (screen.display_info.height as f64 - 7.0 * BUTTON_HEIGHT) * scale_factor_y;
+    // Calculate the scaled dimensions while preserving aspect ratio
+    let (scaled_width, scaled_height) = if image.width() as f64 / desired_width > image.height() as f64 / desired_height {
+        // Fit by width
+        (desired_width, desired_width / aspect_ratio as f64)
+    } else {
+        // Fit by height
+        (desired_height * aspect_ratio as f64, desired_height)
+    };
+
+    data.image_size = (scaled_width,scaled_height);
     // assign scale factors to data
-    data.scale_factors.0 = scale_factor_x;
-    data.scale_factors.1 = scale_factor_y;
+    data.scale_factors.push(((image.width() as f64 / scaled_width),(image.height() as f64 / scaled_height)));
+    //data.scale_factors.0 = image.width() as f64 / scaled_width;
+    //data.scale_factors.1 = image.height() as f64 / scaled_height;
+    println!("{:?}",data.scale_factors);
 
-    let image_width = (screen.display_info.width as f64) * scale_factor_x;
-    let image_height = (screen.display_info.height as f64 - 7.0 * BUTTON_HEIGHT) * scale_factor_y;
 
-    (image_width,image_height)
+    (scaled_width,scaled_height)
 }
 
 // Reset Data Function
@@ -201,7 +216,7 @@ pub fn reset_data(data: &mut GrabData) {
     data.image_data_new = vec![];
     data.press = false;
     data.first_screen = true;
-    data.scale_factors = (1.0,1.0);
+    data.scale_factors = vec![];
     data.positions = vec![];
     data.offsets = vec![];
     data.hotkey_new = vec![];

@@ -25,6 +25,7 @@ use druid::kurbo::{BezPath, Circle};
 use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use image::codecs::pnm::ArbitraryTuplType::RGBAlpha;
 use serde_json::error::Category::Data;
+use crate::grab_data_derived_lenses::highlighter_width;
 use crate::utilities::{rescale_coordinates, make_rectangle_from_points, load_image, compute_circle_center_radius, compute_arrow_points, image_to_buffer, compute_highlighter_points, resize_image};
 
 pub struct ScreenshotWidget;
@@ -130,12 +131,23 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 data.positions = vec![];
                                 return;
                             }
+
+                            let (mut x,mut y,mut width,mut height) : (f64,f64,f64,f64) = (0.0,0.0,0.0,0.0);
+
+                            for scale_factor in &data.scale_factors {
+                                x = min_x as f64 * scale_factor.0;
+                                y = min_y as f64 * scale_factor.1;
+                                width = (max_x - min_x) as f64 * scale_factor.0;
+                                height = (max_y - min_y) as f64 * scale_factor.1;
+                            }
+
                             cropped_annotated_image = dynamic_image.crop(
-                                min_x as u32,
-                                min_y as u32,
-                                (max_x - min_x) as u32,
-                                (max_y - min_y) as u32
+                                x as u32,
+                                y as u32,
+                                width as u32,
+                                height as u32
                             );
+
                             /*if cropped_annotated_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || cropped_annotated_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
                                 data.scale_factor = SCALE_FACTOR;
                             } else {
