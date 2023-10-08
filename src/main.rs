@@ -63,8 +63,7 @@ pub struct GrabData {
     save_format: String,
     press: bool,
     first_screen: bool,
-    #[data(ignore)]
-    scale_factors: Vec<(f64,f64)>,
+    scale_factors: (f64,f64),
     image_size: (f64,f64),
     #[data(ignore)]
     positions: Vec<(f64,f64)>,

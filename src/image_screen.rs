@@ -132,20 +132,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 return;
                             }
 
-                            let (mut x,mut y,mut width,mut height) : (f64,f64,f64,f64) = (0.0,0.0,0.0,0.0);
-
-                            for scale_factor in &data.scale_factors {
-                                x = min_x as f64 * scale_factor.0;
-                                y = min_y as f64 * scale_factor.1;
-                                width = (max_x - min_x) as f64 * scale_factor.0;
-                                height = (max_y - min_y) as f64 * scale_factor.1;
-                            }
-
                             cropped_annotated_image = dynamic_image.crop(
-                                x as u32,
-                                y as u32,
-                                width as u32,
-                                height as u32
+                                (min_x as f64 * data.scale_factors.0) as u32,
+                                (min_y as f64 * data.scale_factors.1) as u32,
+                                ((max_x - min_x) as f64 * data.scale_factors.0) as u32,
+                                ((max_y - min_y) as f64 * data.scale_factors.1) as u32
                             );
 
                             /*if cropped_annotated_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || cropped_annotated_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {

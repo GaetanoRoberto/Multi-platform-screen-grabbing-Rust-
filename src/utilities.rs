@@ -178,7 +178,7 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
         println!("small small");
         scale_factor_x = 0.25;
         scale_factor_y = 0.25;
-        image = image.resize((screen.display_info.width / 4), (screen.display_info.height / 4), FilterType::Nearest);
+        //image = image.resize((screen.display_info.width / 4), (screen.display_info.height / 4), FilterType::Nearest);
     }else{
         // SMALL IMAGE (20% of the screen < size < 50% of the screen)
         println!("small");
@@ -200,9 +200,9 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
 
     data.image_size = (scaled_width,scaled_height);
     // assign scale factors to data
-    data.scale_factors.push(((image.width() as f64 / scaled_width),(image.height() as f64 / scaled_height)));
-    //data.scale_factors.0 = image.width() as f64 / scaled_width;
-    //data.scale_factors.1 = image.height() as f64 / scaled_height;
+    // data.scale_factors.push(((image.width() as f64 / scaled_width),(image.height() as f64 / scaled_height)));
+    data.scale_factors.0 = image.width() as f64 / scaled_width;
+    data.scale_factors.1 = image.height() as f64 / scaled_height;
     println!("{:?}",data.scale_factors);
 
 
@@ -216,7 +216,7 @@ pub fn reset_data(data: &mut GrabData) {
     data.image_data_new = vec![];
     data.press = false;
     data.first_screen = true;
-    data.scale_factors = vec![];
+    data.scale_factors = (1.0,1.0);
     data.positions = vec![];
     data.offsets = vec![];
     data.hotkey_new = vec![];
