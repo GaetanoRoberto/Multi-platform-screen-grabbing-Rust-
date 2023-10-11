@@ -43,7 +43,8 @@ impl Widget<GrabData> for ScreenshotWidget {
             }
             //if annotation text, simply take the point where the mouse is pressed (take no point when mouse moves)
             if data.annotation == Annotation::Text {
-                rescale_coordinates(ctx,mouse_event,data);
+                //rescale_coordinates(ctx,mouse_event,data);
+                data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
             }
         }
         /*if let Event::WindowConnected = event {
@@ -57,15 +58,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                 ctx.set_cursor(&Cursor::IBeam);
             } else {
                 ctx.set_cursor(&Cursor::Crosshair);
-                // first screen case
-                if data.press && data.first_screen {
+                if data.press {
                     data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
                     //println!("coordinates: {:?}",(mouse_event.window_pos.x,mouse_event.window_pos.y));
                 }
-                // two or more case
-                if data.press && !data.first_screen {
-                    rescale_coordinates(ctx,mouse_event,data);
-                }
+
             }
             ctx.request_paint();
         }
@@ -96,14 +93,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                     //println!("minx {} maxx {} miny {} maxy {}",min_x,max_x,min_y,max_y);
                     let image = screen.capture_area(min_x + BORDER_WIDTH as i32, min_y + BORDER_WIDTH as i32, (max_x - (min_x + 2*BORDER_WIDTH as i32)) as u32, (max_y - (min_y + 2*BORDER_WIDTH as i32)) as u32).unwrap();
                     let buffer = image.to_png(None).unwrap();
-                    /*min_x = (min_x as f64 * data.scale_factors.0) as i32;
-                    max_x = (max_x as f64 * data.scale_factors.0) as i32;
-                    min_y = (min_y as f64 * data.scale_factors.1) as i32;
-                    max_y = (max_y as f64 * data.scale_factors.1) as i32;
-                    for position in data.positions.iter_mut() {
-                        position.0 = position.0 * data.scale_factors.0;
-                        position.1 = position.1 * data.scale_factors.1;
-                    } */
+
                     data.image_data_old = buffer;
                     // empty positions
                     data.positions = vec![];
@@ -157,9 +147,12 @@ impl Widget<GrabData> for ScreenshotWidget {
                         },
                         Annotation::Circle => {
                             // compute the center and the radius
-                            let (center_x,center_y,radius) = compute_circle_center_radius(min_x, min_y,max_x,max_y,data);
+                            let (mut center_x, mut center_y) = compute_circle_center_radius(min_x, min_y, max_x, max_y);
                             println!("Disegno finale");
                             let image = load_image(data);
+                            center_x *= data.scale_factors.0;
+                            center_y *= data.scale_factors.1;
+                            let radius = (((data.scale_factors.0 * (max_x - min_x) as f64).powi(2) + (data.scale_factors.1 * (max_y - min_y) as f64).powi(2)) as f64).sqrt()/ 2.0;
 
                             cropped_annotated_image = DynamicImage::from(draw_hollow_circle(&image, (center_x as i32, center_y as i32), radius as i32, Rgba([data.color.0,
                                 data.color.1, data.color.2, data.color.3])));
@@ -170,9 +163,9 @@ impl Widget<GrabData> for ScreenshotWidget {
                             let image = load_image(data);
 
                             // draw line with first and last position, then clear the vector
-                            let p0 = (data.positions[0].0 + data.offsets[0].0, data.positions[0].1 + data.offsets[0].1);
-                            let p1 = (data.positions[data.positions.len()-1].0 + data.offsets[data.offsets.len()-1].0,
-                                      data.positions[data.positions.len()-1].1 + data.offsets[data.offsets.len()-1].1);
+                            let p0 = (data.positions[0].0 , data.positions[0].1 );
+                            let p1 = (data.positions[data.positions.len()-1].0 ,
+                                      data.positions[data.positions.len()-1].1 );
 
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&image,
@@ -210,7 +203,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             // draw rectangle
                             let image = load_image(data);
 
-                            let rectangle = imageproc::rect::Rect::at(min_x, min_y).of_size((max_x - min_x) as u32, (max_y - min_y) as u32);
+                            let rectangle = imageproc::rect::Rect::at((min_x as f64 * data.scale_factors.0) as i32, (min_y as f64 * data.scale_factors.1) as i32).of_size(((max_x - min_x) as f64* data.scale_factors.0 ) as u32,( (max_y - min_y)as f64* data.scale_factors.1) as u32);
                             cropped_annotated_image = DynamicImage::from(
                                 draw_hollow_rect(&image,rectangle,Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
@@ -353,26 +346,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                 let result = make_rectangle_from_points(data);
                 match result {
                     Some((x0,y0,x1,y1)) => {
-                        let mut scaled_x0;
-                        let mut scaled_y0;
-                        let mut scaled_x1;
-                        let mut scaled_y1;
 
-                        if data.first_screen {
-                            scaled_x0 = x0;
-                            scaled_y0 = y0;
-                            scaled_x1 = x1;
-                            scaled_y1 = y1;
-                        } else {
-                            // add offset to currectly draw the rectangle
-                            scaled_x0 = x0 + data.offsets[0].0;
-                            scaled_y0 = y0 + data.offsets[0].1;
-                            scaled_x1 = x1 + data.offsets[data.offsets.len()-1].0;
-                            scaled_y1 = y1 + data.offsets[data.offsets.len()-1].1;
-                        }
+
 
                         // Create a shape representing the rectangle in the widget's coordinate system
-                        let rect_shape = Rect::new(scaled_x0, scaled_y0, scaled_x1, scaled_y1);
+                        let rect_shape = Rect::new(x0, y0, x1, y1);
                         if data.annotation == Annotation::None {
                             // override in white color, only for selection other cases the selected color at the beginning
                             border_color = Color::rgb8(255, 255, 255); // White border color
@@ -387,7 +365,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                 match result {
                     Some((min_x,min_y,max_x,max_y)) => {
                         // compute the center and the radius
-                        let (center_x,center_y,radius) = compute_circle_center_radius(min_x as i32, min_y as i32,max_x as i32,max_y as i32);
+                        let (center_x,center_y) = compute_circle_center_radius(min_x as i32, min_y as i32,max_x as i32,max_y as i32);
+                        let radius = ((((max_x - min_x) as f64).powi(2) + ((max_y - min_y) as f64).powi(2)) as f64).sqrt()/ 2.0;
 
                         // Create a shape representing the circle in the widget's coordinate system
                         let circle_shape = Circle::new((center_x,center_y),radius);
@@ -399,9 +378,9 @@ impl Widget<GrabData> for ScreenshotWidget {
             }
             Annotation::Line => {
                 if !data.positions.is_empty() {
-                    let p0 = (data.positions[0].0 + data.offsets[0].0, data.positions[0].1 + data.offsets[0].1);
-                    let p1 = (data.positions[data.positions.len()-1].0 + data.offsets[data.offsets.len()-1].0,
-                              data.positions[data.positions.len()-1].1 + data.offsets[data.offsets.len()-1].1);
+                    let p0 = (data.positions[0].0 , data.positions[0].1 );
+                    let p1 = (data.positions[data.positions.len()-1].0 ,
+                              data.positions[data.positions.len()-1].1 );
 
                     let line_shape = Line::new(p0,p1);
 

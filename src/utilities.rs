@@ -92,13 +92,11 @@ pub fn make_rectangle_from_points(data: &GrabData ) -> Option<(f64,f64,f64,f64)>
     Some((min_x,min_y,max_x,max_y))
 }
 
-pub fn compute_circle_center_radius(min_x: i32, min_y: i32, max_x: i32, max_y: i32, data: &GrabData) -> (f64,f64,f64) {
+pub fn compute_circle_center_radius(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> (f64,f64) {
     // compute the center
-    let center_x = data.scale_factors.0 * (max_x - min_x) as f64 / 2.0 + data.scale_factors.0 * min_x as f64;
-    let center_y = data.scale_factors.1 * (max_y - min_y) as f64 / 2.0 + data.scale_factors.1 * min_y as f64;
-    let radius = (((data.scale_factors.0 * (max_x - min_x) as f64).powi(2) + (data.scale_factors.1 * (max_y - min_y) as f64).powi(2)) as f64).sqrt()/ 2.0;
-    println!("Radius {} x{} y {}",radius,center_x,center_y);
-    (center_x,center_y,radius)
+    let center_x =   (max_x - min_x) as f64 / 2.0 +  min_x as f64;
+    let center_y =   (max_y - min_y) as f64 / 2.0 +  min_y as f64;
+    (center_x ,center_y)
 }
 
 pub fn compute_arrow_points(data: &GrabData) -> Option<((Point,Point),(Point,Point),(Point,Point))> {
