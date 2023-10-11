@@ -72,7 +72,6 @@ impl Widget<GrabData> for ScreenshotWidget {
 
         if let Event::MouseUp(_) = event {
             data.press = false;
-            ctx.request_paint();
             //println!("{:?}",data.positions);
             if !data.positions.is_empty() {
                 let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
@@ -158,8 +157,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                         },
                         Annotation::Circle => {
                             // compute the center and the radius
-                            let (center_x,center_y,radius) = compute_circle_center_radius(min_x, min_y,max_x,max_y);
-
+                            let (center_x,center_y,radius) = compute_circle_center_radius(min_x, min_y,max_x,max_y,data);
+                            println!("Disegno finale");
                             let image = load_image(data);
 
                             cropped_annotated_image = DynamicImage::from(draw_hollow_circle(&image, (center_x as i32, center_y as i32), radius as i32, Rgba([data.color.0,

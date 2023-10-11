@@ -24,7 +24,7 @@ pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &
     // save corresponding offset to subtract in rectangle paint function
     data.offsets.push(<(f64, f64)>::from((x_offset,y_offset)));
     // Adjust mouse coordinates
-    let mut centered_pos = mouse_event.pos - Vec2::new(x_offset, y_offset);
+    let mut centered_pos = mouse_event.pos ;
     centered_pos.x = centered_pos.x * width_scale;
     centered_pos.y = centered_pos.y * height_scale;
     //println!("Coordinates: {}",mouse_event.pos);
@@ -92,12 +92,12 @@ pub fn make_rectangle_from_points(data: &GrabData ) -> Option<(f64,f64,f64,f64)>
     Some((min_x,min_y,max_x,max_y))
 }
 
-pub fn compute_circle_center_radius(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> (f64,f64,f64) {
+pub fn compute_circle_center_radius(min_x: i32, min_y: i32, max_x: i32, max_y: i32, data: &GrabData) -> (f64,f64,f64) {
     // compute the center
-    let center_x = (max_x - min_x) as f64 / 2.0 + min_x as f64;
-    let center_y = (max_y - min_y) as f64 / 2.0 + min_y as f64;
-    let radius = (((max_x - min_x).pow(2) + (max_y - min_y).pow(2)) as f64).sqrt()/ 2.0;
-
+    let center_x = data.scale_factors.0 * (max_x - min_x) as f64 / 2.0 + data.scale_factors.0 * min_x as f64;
+    let center_y = data.scale_factors.1 * (max_y - min_y) as f64 / 2.0 + data.scale_factors.1 * min_y as f64;
+    let radius = (((data.scale_factors.0 * (max_x - min_x) as f64).powi(2) + (data.scale_factors.1 * (max_y - min_y) as f64).powi(2)) as f64).sqrt()/ 2.0;
+    println!("Radius {} x{} y {}",radius,center_x,center_y);
     (center_x,center_y,radius)
 }
 
@@ -170,8 +170,8 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
 
     if image.width() >= (screen.display_info.width as f64 * NORMAL_BIG_IMAGE_LIMIT) as u32 || image.height() >= (screen.display_info.height as f64 * NORMAL_BIG_IMAGE_LIMIT) as u32 {
         // NORMAL OR BIG IMAGE (>= 50% of the screen)
-        scale_factor_x = image.width() as f64 / (screen.display_info.width as f64 * 1.4);
-        scale_factor_y = image.height() as f64 / (screen.display_info.height as f64 * 1.4);
+        scale_factor_x = image.width() as f64 / (screen.display_info.width as f64 * 1.6);
+        scale_factor_y = image.height() as f64 / (screen.display_info.height as f64 * 1.6);
 
     } else if image.width() <= (screen.display_info.width as f64 * SMALL_IMAGE_LIMIT) as u32 && image.height() <= (screen.display_info.height as f64 * SMALL_IMAGE_LIMIT) as u32 {
         // VERY SMALL IMAGE (<= 20% of the screen)
