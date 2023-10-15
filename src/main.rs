@@ -67,8 +67,7 @@ pub struct GrabData {
     image_size: (f64,f64),
     #[data(ignore)]
     positions: Vec<(f64,f64)>,
-    #[data(ignore)]
-    offsets: Vec<(f64,f64)>,
+    offsets: (f64,f64),
     #[data(ignore)]
     hotkey: Vec<String>,
     #[data(ignore)]

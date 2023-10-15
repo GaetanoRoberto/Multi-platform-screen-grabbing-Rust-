@@ -8,3 +8,6 @@ pub const MAIN_WINDOW_HEIGHT : f64 = 400.0;
 pub const BORDER_WIDTH : f64 = 1.0;
 pub const OPACITY: f64 = 0.05;
 pub const TRANSPARENCY: u8 = 60;
+pub const OFFSET_Y : f64 = 30.0;
+pub const OFFSET_X : f64 = 7.0;
+pub const WINDOW_MULTIPLIER: f64 = 1.1;

@@ -5,31 +5,30 @@ use druid::{EventCtx, MouseEvent, Point, Vec2};
 use image::{DynamicImage, load_from_memory_with_format};
 use screenshots::Screen;
 use crate::{Annotation, GrabData};
-use crate::constants::{BUTTON_HEIGHT, NORMAL_BIG_IMAGE_LIMIT, SMALL_IMAGE_LIMIT};
+use crate::constants::{BUTTON_HEIGHT, NORMAL_BIG_IMAGE_LIMIT, OFFSET_X, OFFSET_Y, SMALL_IMAGE_LIMIT};
 use image::imageops::FilterType;
 
-pub fn rescale_coordinates(ctx: &mut EventCtx, mouse_event: &MouseEvent, data: &mut GrabData) {
-    let mut image = load_image(data);
+pub fn compute_offsets(ctx: &mut EventCtx, data: &mut GrabData) {
     // Calculate the offset to center mouse positions in the Image
-    let widget_size = ctx.size();
+    //let size = ctx.size();
+    let widget_size = ctx.window().get_size();
     //println!("rescale window {}",widget_size);
     let image_width = data.image_size.0;
     let image_height = data.image_size.1;
-    let x_offset = (widget_size.width - image_width) / 2.0;
-    let y_offset = (widget_size.height - image_height) / 2.0;
-    let width_scale = image_width / widget_size.width;
-    let height_scale = image_height / widget_size.height;
-    //println!("parent {} {}",widget_size.width, widget_size.height);
-    //println!("offswt {} {}",x_offset,y_offset);
-    // save corresponding offset to subtract in rectangle paint function
-    data.offsets.push(<(f64, f64)>::from((x_offset,y_offset)));
-    // Adjust mouse coordinates
-    let mut centered_pos = mouse_event.pos ;
-    centered_pos.x = centered_pos.x * width_scale;
-    centered_pos.y = centered_pos.y * height_scale;
-    //println!("Coordinates: {}",mouse_event.pos);
-    //println!("centered coordinates: {}",centered_pos);
-    data.positions.push(<(f64, f64)>::from(centered_pos));
+    let x_offset = ((widget_size.width - image_width) / 2.0);
+    let y_offset = ((widget_size.height - image_height) / 2.0);
+    //println!("window {} {}",widget_size.width, widget_size.height);
+    //println!("image {} {}",image_width, image_height);
+    //println!("offset {} {}",x_offset,y_offset);
+    if !data.first_screen {
+        if x_offset < 1.0 {
+            data.offsets.0 = x_offset;
+            data.offsets.1 = y_offset - OFFSET_Y;
+        } else {
+            data.offsets.0 = x_offset - OFFSET_X;
+            data.offsets.1 = y_offset - OFFSET_Y;
+        }
+    }
 }
 
 pub fn load_image(data: &GrabData ) -> DynamicImage {
@@ -92,10 +91,10 @@ pub fn make_rectangle_from_points(data: &GrabData ) -> Option<(f64,f64,f64,f64)>
     Some((min_x,min_y,max_x,max_y))
 }
 
-pub fn compute_circle_center_radius(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> (f64,f64) {
+pub fn compute_circle_center_radius(data: &GrabData, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> (f64,f64) {
     // compute the center
-    let center_x =   (max_x - min_x) as f64 / 2.0 +  min_x as f64;
-    let center_y =   (max_y - min_y) as f64 / 2.0 +  min_y as f64;
+    let center_x = ((max_x as f64 - data.offsets.0) - (min_x as f64 - data.offsets.0)) / 2.0 +  (min_x as f64 - data.offsets.0);
+    let center_y = ((max_y as f64 - data.offsets.1) - (min_y as f64 - data.offsets.1)) / 2.0 +  (min_y as f64 - data.offsets.1);
     (center_x ,center_y)
 }
 
@@ -103,11 +102,12 @@ pub fn compute_arrow_points(data: &GrabData) -> Option<((Point,Point),(Point,Poi
     if data.positions.is_empty() {
         return None;
     }
-    let main_line_p0 = Point::new(data.positions[0].0, data.positions[0].1);
-    let main_line_p1 = Point::new(data.positions[data.positions.len()-1].0, data.positions[data.positions.len()-1].1);
+    let main_line_p0 = Point::new(data.positions[0].0 - data.offsets.0, data.positions[0].1 - data.offsets.1);
+    let main_line_p1 = Point::new(data.positions[data.positions.len()-1].0 - data.offsets.0, data.positions[data.positions.len()-1].1 - data.offsets.1);
 
     //direzione = endX - startX , endY - startY
-    let direction = Point::new(data.positions[data.positions.len() - 1].0 - data.positions[0].0, data.positions[data.positions.len() - 1].1 - data.positions[0].1);
+    let direction = Point::new((data.positions[data.positions.len() - 1].0 - data.offsets.0) - (data.positions[0].0 - data.offsets.0),
+                               (data.positions[data.positions.len() - 1].1 - data.offsets.1) - (data.positions[0].1 - data.offsets.1));
     //lunghezza = ipotenusa teorema di pitagora
     let arrow_length = ((direction.x.powi(2) + direction.y.powi(2)) as f64).sqrt();
     // angolo tra asseX e freccia
@@ -116,8 +116,8 @@ pub fn compute_arrow_points(data: &GrabData) -> Option<((Point,Point),(Point,Poi
     let arrow_tip = arrow_length/3.0;
 
     // Calcola punti della punta della freccia
-    let arrow_x1 = data.positions[data.positions.len() - 1].0 - (direction.x / arrow_length);
-    let arrow_y1 = data.positions[data.positions.len() - 1].1 - (direction.y / arrow_length);
+    let arrow_x1 = (data.positions[data.positions.len() - 1].0 - data.offsets.0) - (direction.x / arrow_length);
+    let arrow_y1 = (data.positions[data.positions.len() - 1].1 - data.offsets.1) - (direction.y / arrow_length);
 
     let arrow_l0_p0 = main_line_p1;
     let arrow_l0_p1 = Point::new(arrow_x1 - arrow_tip * (angle + PI / 6.0).cos(),arrow_y1 - arrow_tip * (angle + PI / 6.0).sin());
@@ -133,8 +133,8 @@ pub fn compute_highlighter_points(data: &GrabData) -> Option<(Point, Point, Poin
         return None;
     }
     // draw line with first and last position, then clear the vector
-    let point1 = Point::new(data.positions[0].0, data.positions[0].1);
-    let point2 = Point::new(data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+    let point1 = Point::new(data.positions[0].0 - data.offsets.0, data.positions[0].1 - data.offsets.1);
+    let point2 = Point::new(data.positions[data.positions.len()-1].0 - data.offsets.0,data.positions[data.positions.len()-1].1 - data.offsets.1);
 
     // Define your margin and the two points representing the line segment
     let highlighter_width = data.highlighter_width;
@@ -201,8 +201,7 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
     // data.scale_factors.push(((image.width() as f64 / scaled_width),(image.height() as f64 / scaled_height)));
     data.scale_factors.0 = image.width() as f64 / scaled_width;
     data.scale_factors.1 = image.height() as f64 / scaled_height;
-    println!("{:?}",data.scale_factors);
-
+    println!("scale factors {:?}",data.scale_factors);
 
     (scaled_width,scaled_height)
 }
@@ -216,7 +215,7 @@ pub fn reset_data(data: &mut GrabData) {
     data.first_screen = true;
     data.scale_factors = (1.0,1.0);
     data.positions = vec![];
-    data.offsets = vec![];
+    data.offsets = (0.0,0.0);
     data.hotkey_new = vec![];
     data.hotkey_sequence = 0;
     data.set_hot_key = false;

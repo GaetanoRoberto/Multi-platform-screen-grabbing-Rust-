@@ -26,7 +26,7 @@ use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use image::codecs::pnm::ArbitraryTuplType::RGBAlpha;
 use serde_json::error::Category::Data;
 use crate::grab_data_derived_lenses::highlighter_width;
-use crate::utilities::{rescale_coordinates, make_rectangle_from_points, load_image, compute_circle_center_radius, compute_arrow_points, image_to_buffer, compute_highlighter_points, resize_image};
+use crate::utilities::{compute_offsets, make_rectangle_from_points, load_image, compute_circle_center_radius, compute_arrow_points, image_to_buffer, compute_highlighter_points, resize_image};
 
 pub struct ScreenshotWidget;
 
@@ -39,6 +39,7 @@ impl Widget<GrabData> for ScreenshotWidget {
 
         if let Event::MouseDown(mouse_event) = event {
             if mouse_event.button.is_left() {
+                compute_offsets(ctx, data);
                 data.press = true;
             }
             //if annotation text, simply take the point where the mouse is pressed (take no point when mouse moves)
@@ -69,6 +70,7 @@ impl Widget<GrabData> for ScreenshotWidget {
 
         if let Event::MouseUp(_) = event {
             data.press = false;
+            //rescale_coordinates(ctx,data);
             //println!("{:?}",data.positions);
             if !data.positions.is_empty() {
                 let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
@@ -131,10 +133,10 @@ impl Widget<GrabData> for ScreenshotWidget {
                             }
 
                             cropped_annotated_image = dynamic_image.crop(
-                                (min_x as f64 * data.scale_factors.0) as u32,
-                                (min_y as f64 * data.scale_factors.1) as u32,
-                                ((max_x - min_x) as f64 * data.scale_factors.0) as u32,
-                                ((max_y - min_y) as f64 * data.scale_factors.1) as u32
+                                ((min_x as f64 - data.offsets.0) * data.scale_factors.0) as u32,
+                                ((min_y as f64 - data.offsets.1) * data.scale_factors.1) as u32,
+                                (((max_x as f64- data.offsets.0) - (min_x as f64 - data.offsets.0)) * data.scale_factors.0) as u32,
+                                (((max_y as f64- data.offsets.1) - (min_y as f64 - data.offsets.1)) * data.scale_factors.1) as u32
                             );
 
                             /*if cropped_annotated_image.width() >= (screen.display_info.width as f64 * LIMIT_PROPORTION) as u32 || cropped_annotated_image.height() >= (screen.display_info.height as f64 * LIMIT_PROPORTION) as u32 {
@@ -147,14 +149,12 @@ impl Widget<GrabData> for ScreenshotWidget {
                         },
                         Annotation::Circle => {
                             // compute the center and the radius
-                            let (mut center_x, mut center_y) = compute_circle_center_radius(min_x, min_y, max_x, max_y);
+                            let (mut center_x, mut center_y) = compute_circle_center_radius(data, min_x, min_y, max_x, max_y);
                             println!("Disegno finale");
                             let image = load_image(data);
-                            center_x *= data.scale_factors.0;
-                            center_y *= data.scale_factors.1;
                             let radius = (((data.scale_factors.0 * (max_x - min_x) as f64).powi(2) + (data.scale_factors.1 * (max_y - min_y) as f64).powi(2)) as f64).sqrt()/ 2.0;
 
-                            cropped_annotated_image = DynamicImage::from(draw_hollow_circle(&image, (center_x as i32, center_y as i32), radius as i32, Rgba([data.color.0,
+                            cropped_annotated_image = DynamicImage::from(draw_hollow_circle(&image, ((center_x * data.scale_factors.0) as i32, (center_y * data.scale_factors.1) as i32), radius as i32, Rgba([data.color.0,
                                 data.color.1, data.color.2, data.color.3])));
 
                         },
@@ -169,8 +169,8 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                             cropped_annotated_image = DynamicImage::from(
                                 draw_line_segment(&image,
-                                                  ((p0.0 * data.scale_factors.0) as f32, (p0.1 * data.scale_factors.1) as f32),
-                                                  ((p1.0 * data.scale_factors.0) as f32, (p1.1 * data.scale_factors.1) as f32),
+                                                  (((p0.0 - data.offsets.0) * data.scale_factors.0) as f32, ((p0.1 - data.offsets.1) * data.scale_factors.1) as f32),
+                                                  (((p1.0 - data.offsets.0) * data.scale_factors.0) as f32, ((p1.1 - data.offsets.1) * data.scale_factors.1) as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
                         },
@@ -178,8 +178,9 @@ impl Widget<GrabData> for ScreenshotWidget {
                             // draw cross through two lines
                             let image = load_image(data);
 
-                            let line0_p0 = (data.positions[0].0, data.positions[0].1);
-                            let line0_p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+                            let line0_p0 = (data.positions[0].0 - data.offsets.0, data.positions[0].1 - data.offsets.1);
+                            let line0_p1 = (data.positions[data.positions.len()-1].0 - data.offsets.0,
+                                            data.positions[data.positions.len()-1].1 - data.offsets.1);
 
                             // draw line with first and last position, then clear the vector
                             cropped_annotated_image = DynamicImage::from(
@@ -188,8 +189,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                                                   ((line0_p1.0 * data.scale_factors.0) as f32, (line0_p1.1 * data.scale_factors.1) as f32),
                                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
-                            let line1_p0 = (data.positions[0].0, data.positions[data.positions.len()-1].1);
-                            let line1_p1 = (data.positions[data.positions.len()-1].0,data.positions[0].1);
+                            let line1_p0 = (data.positions[0].0 - data.offsets.0, data.positions[data.positions.len()-1].1 - data.offsets.1);
+                            let line1_p1 = (data.positions[data.positions.len()-1].0 - data.offsets.0,data.positions[0].1 - data.offsets.1);
 
                             // draw line with first and last position, then clear the vector
                             cropped_annotated_image = DynamicImage::from(
@@ -203,7 +204,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                             // draw rectangle
                             let image = load_image(data);
 
-                            let rectangle = imageproc::rect::Rect::at((min_x as f64 * data.scale_factors.0) as i32, (min_y as f64 * data.scale_factors.1) as i32).of_size(((max_x - min_x) as f64* data.scale_factors.0 ) as u32,( (max_y - min_y)as f64* data.scale_factors.1) as u32);
+                            let rectangle = imageproc::rect::Rect::at(((min_x as f64 - data.offsets.0) * data.scale_factors.0) as i32, ((min_y as f64 - data.offsets.1) * data.scale_factors.1) as i32).of_size((((max_x as f64 - data.offsets.0) - (min_x as f64 - data.offsets.0)) * data.scale_factors.0 ) as u32,( ((max_y as f64 - data.offsets.1) - (min_y as f64 - data.offsets.1)) * data.scale_factors.1) as u32);
                             cropped_annotated_image = DynamicImage::from(
                                 draw_hollow_rect(&image,rectangle,Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
@@ -219,8 +220,8 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                                 cropped_annotated_image = DynamicImage::from(
                                     draw_line_segment(&cropped_annotated_image,
-                                                      ((line_p0.0 * data.scale_factors.0) as f32, (line_p0.1 * data.scale_factors.1) as f32),
-                                                      ((line_p1.0 * data.scale_factors.0) as f32, (line_p1.1 * data.scale_factors.1) as f32),
+                                                       (((line_p0.0 - data.offsets.0) * data.scale_factors.0) as f32, ((line_p0.1 - data.offsets.1) * data.scale_factors.1) as f32),
+                                                      (((line_p1.0 - data.offsets.0) * data.scale_factors.0) as f32, ((line_p1.1 - data.offsets.1) * data.scale_factors.1) as f32),
                                                       Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
                             }
 
@@ -238,10 +239,10 @@ impl Widget<GrabData> for ScreenshotWidget {
 
                             match result {
                                 Some((rect_point1,rect_point2,rect_point3,rect_point4)) => {
-                                    let poly = &[imageproc::point::Point::new(rect_point1.x as i32,rect_point1.y as i32),
-                                        imageproc::point::Point::new(rect_point2.x as i32,rect_point2.y as i32),
-                                        imageproc::point::Point::new(rect_point3.x as i32,rect_point3.y as i32),
-                                        imageproc::point::Point::new(rect_point4.x as i32,rect_point4.y as i32)];
+                                    let poly = &[imageproc::point::Point::new((rect_point1.x * data.scale_factors.0) as i32,(rect_point1.y * data.scale_factors.1) as i32),
+                                        imageproc::point::Point::new((rect_point2.x * data.scale_factors.0) as i32,(rect_point2.y * data.scale_factors.1) as i32),
+                                        imageproc::point::Point::new((rect_point3.x * data.scale_factors.0) as i32,(rect_point3.y * data.scale_factors.1) as i32),
+                                        imageproc::point::Point::new((rect_point4.x * data.scale_factors.0) as i32,(rect_point4.y * data.scale_factors.1) as i32)];
 
                                     transparent_image = draw_polygon(&transparent_image, poly, Rgba([data.color.0, data.color.1, data.color.2, TRANSPARENCY]));
 
@@ -260,21 +261,21 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     // draw line of arrow
                                     cropped_annotated_image = DynamicImage::from(
                                         draw_line_segment(&image,
-                                                          (main_line_p0.x as f32, main_line_p0.y as f32),
-                                                          (main_line_p1.x as f32, main_line_p1.y as f32),
+                                                          ((main_line_p0.x * data.scale_factors.0) as f32, (main_line_p0.y * data.scale_factors.1) as f32),
+                                                          ((main_line_p1.x * data.scale_factors.0) as f32, (main_line_p1.y * data.scale_factors.1) as f32),
                                                           Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
                                     // segmento 1 punta freccia
                                     cropped_annotated_image = DynamicImage::from(
                                         draw_line_segment(&cropped_annotated_image,
-                                                          (arrow_l0_p0.x as f32, arrow_l0_p0.y as f32),
-                                                          (arrow_l0_p1.x as f32, arrow_l0_p1.y as f32),
+                                                          ((arrow_l0_p0.x * data.scale_factors.0) as f32, (arrow_l0_p0.y * data.scale_factors.1) as f32),
+                                                          ((arrow_l0_p1.x * data.scale_factors.0) as f32, (arrow_l0_p1.y * data.scale_factors.1) as f32),
                                                           Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
                                     // segmento 2 punta freccia
                                     cropped_annotated_image = DynamicImage::from(
                                         draw_line_segment(&cropped_annotated_image,
-                                                          (arrow_l1_p0.x as f32, arrow_l1_p0.y as f32),
-                                                          (arrow_l1_p1.x as f32, arrow_l1_p1.y as f32),
+                                                          ((arrow_l1_p0.x * data.scale_factors.0) as f32, (arrow_l1_p0.y * data.scale_factors.1) as f32),
+                                                          ((arrow_l1_p1.x * data.scale_factors.0) as f32, (arrow_l1_p1.y * data.scale_factors.1) as f32),
                                                           Rgba([data.color.0, data.color.1, data.color.2, data.color.3])));
 
                                 }
@@ -350,7 +351,8 @@ impl Widget<GrabData> for ScreenshotWidget {
 
 
                         // Create a shape representing the rectangle in the widget's coordinate system
-                        let rect_shape = Rect::new(x0, y0, x1, y1);
+                        let rect_shape = Rect::new(x0 - data.offsets.0, y0 - data.offsets.1,
+                                                   x1 - data.offsets.0, y1 - data.offsets.1);
                         if data.annotation == Annotation::None {
                             // override in white color, only for selection other cases the selected color at the beginning
                             border_color = Color::rgb8(255, 255, 255); // White border color
@@ -365,8 +367,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                 match result {
                     Some((min_x,min_y,max_x,max_y)) => {
                         // compute the center and the radius
-                        let (center_x,center_y) = compute_circle_center_radius(min_x as i32, min_y as i32,max_x as i32,max_y as i32);
-                        let radius = ((((max_x - min_x) as f64).powi(2) + ((max_y - min_y) as f64).powi(2)) as f64).sqrt()/ 2.0;
+                        let (center_x,center_y) = compute_circle_center_radius(data,min_x as i32, min_y as i32,max_x as i32,max_y as i32);
+                        let radius = ((((max_x - min_x)).powi(2) + ((max_y - min_y)).powi(2))).sqrt()/ 2.0;
 
                         // Create a shape representing the circle in the widget's coordinate system
                         let circle_shape = Circle::new((center_x,center_y),radius);
@@ -378,10 +380,11 @@ impl Widget<GrabData> for ScreenshotWidget {
             }
             Annotation::Line => {
                 if !data.positions.is_empty() {
-                    let p0 = (data.positions[0].0 , data.positions[0].1 );
-                    let p1 = (data.positions[data.positions.len()-1].0 ,
-                              data.positions[data.positions.len()-1].1 );
+                    let p0 = (data.positions[0].0 - data.offsets.0, data.positions[0].1 - data.offsets.1);
+                    let p1 = (data.positions[data.positions.len()-1].0 - data.offsets.0,
+                              data.positions[data.positions.len()-1].1 - data.offsets.1);
 
+                    //println!("line paint {:?}",(p0,p1));
                     let line_shape = Line::new(p0,p1);
 
                     // Create a line in the widget's coordinate system
@@ -390,13 +393,14 @@ impl Widget<GrabData> for ScreenshotWidget {
             }
             Annotation::Cross => {
                 if !data.positions.is_empty() {
-                    let line0_p0 = (data.positions[0].0, data.positions[0].1);
-                    let line0_p1 = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+                    let line0_p0 = (data.positions[0].0 - data.offsets.0, data.positions[0].1 - data.offsets.1);
+                    let line0_p1 = (data.positions[data.positions.len()-1].0 - data.offsets.0,
+                                    data.positions[data.positions.len()-1].1 - data.offsets.1);
 
                     let line0_shape = Line::new(line0_p0,line0_p1);
 
-                    let line1_p0 = (data.positions[0].0, data.positions[data.positions.len()-1].1);
-                    let line1_p1 = (data.positions[data.positions.len()-1].0,data.positions[0].1);
+                    let line1_p0 = (data.positions[0].0 - data.offsets.0, data.positions[data.positions.len()-1].1 - data.offsets.1);
+                    let line1_p1 = (data.positions[data.positions.len()-1].0 - data.offsets.0,data.positions[0].1 - data.offsets.1);
 
                     let line1_shape = Line::new(line1_p0,line1_p1);
 
@@ -409,8 +413,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                 if !data.positions.is_empty() {
                     // draw line with first and last position, then clear the vector
                     for pos_index in 0..(data.positions.len()-1) {
-                        let line_p0 = (data.positions[pos_index].0, data.positions[pos_index].1);
-                        let line_p1 = (data.positions[pos_index+1].0, data.positions[pos_index+1].1);
+                        let line_p0 = (data.positions[pos_index].0 - data.offsets.0, data.positions[pos_index].1 - data.offsets.1);
+                        let line_p1 = (data.positions[pos_index+1].0 - data.offsets.0, data.positions[pos_index+1].1 - data.offsets.1);
 
                         let line_shape = Line::new(line_p0,line_p1);
 
