@@ -44,7 +44,6 @@ impl Widget<GrabData> for ScreenshotWidget {
             }
             //if annotation text, simply take the point where the mouse is pressed (take no point when mouse moves)
             if data.annotation == Annotation::Text {
-                //rescale_coordinates(ctx,mouse_event,data);
                 data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
             }
         }
@@ -70,29 +69,25 @@ impl Widget<GrabData> for ScreenshotWidget {
 
         if let Event::MouseUp(_) = event {
             data.press = false;
-            //rescale_coordinates(ctx,data);
-            //println!("{:?}",data.positions);
+
             if !data.positions.is_empty() {
                 let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
 
                 let (min_x2,min_y2,max_x2,max_y2) = make_rectangle_from_points(data).unwrap();
 
-                let scale_factor_x = ctx.scale().x();
-                let scale_factor_y = ctx.scale().y();
-                min_x = (min_x2 as f64 * scale_factor_x) as i32;
-                max_x = (max_x2 as f64 * scale_factor_x) as i32;
-
                 if !data.first_screen {
-                    //min_y = ((min_y2 as f64 * scale_factor_y)+35.0) as i32;
-                    //max_y = ((max_y2 as f64 * scale_factor_y)+35.0) as i32;
                     min_x = min_x2 as i32;
                     max_x = max_x2 as i32;
                     min_y = min_y2 as i32;
                     max_y = max_y2 as i32;
                 } else {
-                    min_y = (min_y2 as f64 * scale_factor_y) as i32;
-                    max_y = (max_y2 as f64 * scale_factor_y) as i32;
-                    //println!("minx {} maxx {} miny {} maxy {}",min_x,max_x,min_y,max_y);
+                    let scale_factor_x = ctx.scale().x();
+                    let scale_factor_y = ctx.scale().y();
+                    min_x = (min_x2 * scale_factor_x) as i32;
+                    max_x = (max_x2 * scale_factor_x) as i32;
+                    min_y = (min_y2 * scale_factor_y) as i32;
+                    max_y = (max_y2 * scale_factor_y) as i32;
+
                     let image = screen.capture_area(min_x + BORDER_WIDTH as i32, min_y + BORDER_WIDTH as i32, (max_x - (min_x + 2*BORDER_WIDTH as i32)) as u32, (max_y - (min_y + 2*BORDER_WIDTH as i32)) as u32).unwrap();
                     let buffer = image.to_png(None).unwrap();
 

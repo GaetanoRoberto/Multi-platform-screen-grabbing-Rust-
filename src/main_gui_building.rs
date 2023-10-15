@@ -695,7 +695,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
             ).with_child(create_edit_window_widgets(data)).controller(Enter))
             .set_position((rect.x0,rect.y0))
             .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 7.0)))
-            .with_min_size(Size::new( if 5.0 * BUTTON_WIDTH < image_width * WINDOW_MULTIPLIER { image_width * WINDOW_MULTIPLIER } else { 5.0 * BUTTON_WIDTH } ,3.0* BUTTON_HEIGHT ))
+            .with_min_size(Size::new((5.0 * BUTTON_WIDTH).max(image_width * WINDOW_MULTIPLIER),3.0* BUTTON_HEIGHT ))
             .resizable(true))
 }
 
@@ -725,7 +725,7 @@ pub fn create_selection_window(ctx: &mut EventCtx, data: &mut GrabData) {
                 .with_child(create_annotation_buttons())).controller(Enter))
             .set_position((rect.x0,rect.y0))
             .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 7.0)))
-            .with_min_size(Size::new( if 5.0 * BUTTON_WIDTH < image_width * WINDOW_MULTIPLIER { image_width * WINDOW_MULTIPLIER } else { 5.0 * BUTTON_WIDTH } ,3.0 * BUTTON_HEIGHT ))
+            .with_min_size(Size::new((5.0 * BUTTON_WIDTH).max(image_width * WINDOW_MULTIPLIER),3.0 * BUTTON_HEIGHT ))
             .resizable(true))
 }
 
