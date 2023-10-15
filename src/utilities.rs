@@ -16,7 +16,8 @@ pub fn compute_offsets(ctx: &mut EventCtx, data: &mut GrabData) {
     let image_width = data.image_size.0;
     let image_height = data.image_size.1;
     let x_offset = ((widget_size.width - image_width) / 2.0);
-    let y_offset = ((widget_size.height - image_height) / 2.0);
+    // take into account BUTTON_HEIGHT * 3.0 more height to make highliter and text widget visible
+    let y_offset = ((widget_size.height - BUTTON_HEIGHT * 3.0 - image_height) / 2.0);
     //println!("window {} {}",widget_size.width, widget_size.height);
     //println!("image {} {}",image_width, image_height);
     //println!("offset {} {}",x_offset,y_offset);
