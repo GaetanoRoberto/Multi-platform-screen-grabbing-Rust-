@@ -460,7 +460,8 @@ impl Widget<GrabData> for ScreenshotWidget {
                 if !data.positions.is_empty() {
                     // take the only point to draw the text line from it
                     // the last point if we click many times, so len-1
-                    let (min_x,min_y) = (data.positions[data.positions.len()-1].0,data.positions[data.positions.len()-1].1);
+                    let (min_x,min_y) = (data.positions[data.positions.len()-1].0 - data.offsets.0,
+                                         data.positions[data.positions.len()-1].1 - data.offsets.1);
                     let line_shape = Line::new((min_x,min_y),(min_x, min_y + data.text_size));
 
                     paint_ctx.stroke(line_shape, &border_color, BORDER_WIDTH);

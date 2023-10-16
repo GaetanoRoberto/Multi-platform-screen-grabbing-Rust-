@@ -596,7 +596,8 @@ pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
                 if !data.positions.is_empty() {
                     // take the only point to draw the text from it
                     // the last point if we click many times, so len-1
-                    let (x,y) = (data.positions[data.positions.len()-1].0 as i32,data.positions[data.positions.len()-1].1 as i32);
+                    let (x,y) = (((data.positions[data.positions.len()-1].0 - data.offsets.0) * data.scale_factors.0) as i32,
+                                 ((data.positions[data.positions.len()-1].1 - data.offsets.1) * data.scale_factors.1) as i32);
                     let text_image = DynamicImage::from(
                         draw_text(&image,
                                   Rgba([data.color.0, data.color.1, data.color.2, data.color.3]), x, y,
