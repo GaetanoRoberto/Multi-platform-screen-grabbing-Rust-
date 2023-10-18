@@ -197,11 +197,11 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
         (desired_height * aspect_ratio as f64, desired_height)
     };
 
-    let window_size = Size::new( scaled_width,(scaled_height + BUTTON_HEIGHT * 7.0));
+    //let window_size = Size::new( scaled_width,(scaled_height + BUTTON_HEIGHT * 7.0));
 
-    if window_size.width > screen.display_info.width as f64 || window_size.height > screen.display_info.height as f64 {
+    if image.width() as f64>0.9* screen.display_info.width as f64 || image.height() as f64 > 0.9*screen.display_info.height as f64 {
         // if window size becames bigger than the monitor, rescale
-        let big_factor = (window_size.width/screen.display_info.width as f64).max(window_size.height/screen.display_info.height as f64);
+        let big_factor = (image.width()as f64/screen.display_info.width as f64).max(image.height() as f64/screen.display_info.height as f64)+0.1;
         scaled_width /= big_factor;
         scaled_height /= big_factor;
     }

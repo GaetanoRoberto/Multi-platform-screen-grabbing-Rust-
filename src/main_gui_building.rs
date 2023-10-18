@@ -34,9 +34,11 @@ pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut Grab
         WindowDesc::new(
             Flex::<GrabData>::row().with_child(ScreenshotWidget).background(Color::rgba(0.0,0.0,0.0, OPACITY)))
             .show_titlebar(false)
+            .resizable(false)
             .transparent(true)
             .set_position((rect.x0,rect.y0))
             .window_size(Size::new(screen.display_info.width as f64,screen.display_info.height as f64)));
+
 }
 
 fn create_monitor_buttons() -> Flex<GrabData> {
