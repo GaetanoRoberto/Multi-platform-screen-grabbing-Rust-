@@ -1,7 +1,7 @@
 // IMAGE SCREEN FUNCTIONS
 
 use std::f64::consts::PI;
-use druid::{EventCtx, MouseEvent, Point, Vec2};
+use druid::{EventCtx, MouseEvent, Point, Size, Vec2};
 use image::{DynamicImage, load_from_memory_with_format};
 use screenshots::Screen;
 use crate::{Annotation, GrabData};
@@ -189,13 +189,22 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
     let desired_width = (screen.display_info.width as f64) * scale_factor_x;
     let desired_height = (screen.display_info.height as f64 - 7.0 * BUTTON_HEIGHT) * scale_factor_y;
     // Calculate the scaled dimensions while preserving aspect ratio
-    let (scaled_width, scaled_height) = if image.width() as f64 / desired_width > image.height() as f64 / desired_height {
+    let (mut scaled_width, mut scaled_height) = if image.width() as f64 / desired_width > image.height() as f64 / desired_height {
         // Fit by width
         (desired_width, desired_width / aspect_ratio as f64)
     } else {
         // Fit by height
         (desired_height * aspect_ratio as f64, desired_height)
     };
+
+    let window_size = Size::new( scaled_width,(scaled_height + BUTTON_HEIGHT * 7.0));
+
+    if window_size.width > screen.display_info.width as f64 || window_size.height > screen.display_info.height as f64 {
+        // if window size becames bigger than the monitor, rescale
+        let big_factor = (window_size.width/screen.display_info.width as f64).max(window_size.height/screen.display_info.height as f64);
+        scaled_width /= big_factor;
+        scaled_height /= big_factor;
+    }
 
     data.image_size = (scaled_width,scaled_height);
     // assign scale factors to data
