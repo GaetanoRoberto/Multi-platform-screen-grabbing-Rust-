@@ -19,7 +19,7 @@ use crate::main_gui_building::{create_annotation_buttons, create_edit_window, cr
 use rusttype::Font;
 use druid::{kurbo::Line, piet::StrokeStyle, kurbo::Shape, PaintCtx};
 use druid::Handled::No;
-use crate::constants::{BORDER_WIDTH, TRANSPARENCY};
+use crate::constants::{APP_NAME, BORDER_WIDTH, TRANSPARENCY};
 use std::f64::consts::PI;
 use druid::kurbo::{BezPath, Circle};
 use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
@@ -117,10 +117,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                                 let (image_width,image_height) = resize_image(dynamic_image,data);
 
                                 ctx.window().close();
-                                ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop: Image too Small. Choose if save the image as it is or undo:"))
+                                ctx.new_window(WindowDesc::new(Flex::column().with_child(Label::new("Cannot Crop: Image too Small. \nChoose if save the image as it is or undo:"))
                                     .with_child(SizedBox::new(Image::new(buffer)).width(image_width).height(image_height))
-                                    .with_child(create_save_cancel_clipboard_buttons())).set_position((rect.x0,rect.y0))
-                                    .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 4.0)))
+                                    .with_child(create_save_cancel_clipboard_buttons())).title(APP_NAME).set_position((rect.x0,rect.y0))
+                                    .with_min_size(Size::new(5.0 * BUTTON_WIDTH,3.0* BUTTON_HEIGHT))
+                                    .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 5.0)))
                                     .resizable(false));
 
                                 data.positions = vec![];

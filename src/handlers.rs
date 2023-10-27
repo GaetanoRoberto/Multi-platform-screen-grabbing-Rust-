@@ -21,7 +21,6 @@ impl AppDelegate<GrabData> for Delegate {
         _env: &druid::Env,
     ) -> druid::Handled {
         if cmd.is(commands::CLOSE_WINDOW) {
-            // TODO: set initial value for parameters who need it
             // Handle the window close event
             println!("Closing the window");
             // create a data copy to save into json, without actually modifying data (NEEDED FOR LINUX)

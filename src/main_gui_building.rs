@@ -11,7 +11,7 @@ use image::{DynamicImage, EncodableLayout, load_from_memory_with_format, Rgba};
 use imageproc::drawing::{Canvas, draw_text};
 use screenshots::Screen;
 use serde_json::{from_reader, to_writer};
-use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT, OPACITY, WINDOW_MULTIPLIER};
+use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT, OPACITY, WINDOW_MULTIPLIER, APP_NAME};
 use crate::{Annotation, GrabData};
 use crate::utilities::{image_to_buffer, load_image, resize_image};
 use crate::image_screen::ScreenshotWidget;
@@ -33,6 +33,7 @@ pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut Grab
     ctx.new_window(
         WindowDesc::new(
             Flex::<GrabData>::row().with_child(ScreenshotWidget).background(Color::rgba(0.0,0.0,0.0, OPACITY)))
+            .title(APP_NAME)
             .show_titlebar(false)
             .resizable(false)
             .transparent(true)
@@ -133,7 +134,7 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
                 //_data.hotkey.clear();
                 _data.hotkey_new.clear();
                 _ctx.window().close();
-                _ctx.new_window(WindowDesc::new(hotkeys_window()).window_size((600.0,300.0)).show_titlebar(false).resizable(false));
+                _ctx.new_window(WindowDesc::new(hotkeys_window()).title(APP_NAME).window_size((600.0,300.0)).show_titlebar(false).resizable(false));
 
             /*}else{
                 //set
@@ -210,7 +211,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                     _data.input_hotkey_error.0 = false;
                     _ctx.window().close();
                     let main_window = WindowDesc::new(build_ui())
-                        .title("Screen grabbing Utility")
+                        .title(APP_NAME)
                         .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
                     _ctx.new_window(main_window);
                 }
@@ -239,7 +240,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
         _data.input_hotkey_error.0 = false;
         _ctx.window().close();
         let main_window = WindowDesc::new(build_ui())
-            .title("Screen grabbing Utility")
+            .title(APP_NAME)
             .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
         _ctx.new_window(main_window);
 
@@ -266,7 +267,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                 _data.input_hotkey_error.0 = false;
                 _ctx.window().close();
                 let main_window = WindowDesc::new(build_ui())
-                    .title("Screen grabbing Utility")
+                    .title(APP_NAME)
                     .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
                 _ctx.new_window(main_window);
 
@@ -321,7 +322,7 @@ pub fn create_save_cancel_clipboard_buttons() -> impl Widget<GrabData> {
         // if handles the else, a message window saying no file, but the save button appears only when there is an image for now
         _ctx.window().close();
         _ctx.new_window(WindowDesc::new(build_ui())
-            .title("Screen grabbing Utility")
+            .title(APP_NAME)
             .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)));
     }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
 
@@ -331,7 +332,7 @@ pub fn create_save_cancel_clipboard_buttons() -> impl Widget<GrabData> {
         _data.first_screen = true;
         _ctx.window().close();
         _ctx.new_window(WindowDesc::new(build_ui())
-            .title("Screen grabbing Utility")
+            .title(APP_NAME)
             .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)));
     }).fix_size(BUTTON_WIDTH, BUTTON_HEIGHT);
 
@@ -500,7 +501,7 @@ pub fn create_annotation_buttons() -> impl Widget<GrabData> {
                                .on_click(|ctx, data: &mut GrabData, _env| {
                                    let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
                                    ctx.window().close();
-                                   ctx.new_window(WindowDesc::new(create_color_buttons()).window_size((250.0,200.0)).show_titlebar(false).resizable(false).set_position((rect.x0,rect.y0)));
+                                   ctx.new_window(WindowDesc::new(create_color_buttons()).title(APP_NAME).window_size((250.0,200.0)).show_titlebar(false).resizable(false).set_position((rect.x0,rect.y0)));
                                }), 1.0);
 
     Flex::column().with_child(ui_row1).with_child(ui_row2)
@@ -696,6 +697,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
                             .with_centered_child(ScreenshotWidget)).width(image_width).height(image_height)
                     )
             ).with_child(create_edit_window_widgets(data)).controller(Enter))
+            .title(APP_NAME)
             .set_position((rect.x0,rect.y0))
             .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 7.0)))
             .with_min_size(Size::new((5.0 * BUTTON_WIDTH).max(image_width * WINDOW_MULTIPLIER),3.0* BUTTON_HEIGHT ))
@@ -726,6 +728,7 @@ pub fn create_selection_window(ctx: &mut EventCtx, data: &mut GrabData) {
                     .with_child( SizedBox::new(Image::new(image_buf)).width(image_width).height(image_height))
             ).with_child(Flex::column().with_child(create_save_cancel_clipboard_buttons())
                 .with_child(create_annotation_buttons())).controller(Enter))
+            .title(APP_NAME)
             .set_position((rect.x0,rect.y0))
             .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 7.0)))
             .with_min_size(Size::new((5.0 * BUTTON_WIDTH).max(image_width * WINDOW_MULTIPLIER),3.0 * BUTTON_HEIGHT ))

@@ -36,6 +36,7 @@ use crate::image_screen::ScreenshotWidget;
 use crate::main_gui_building::build_ui;
 use crate::handlers::Delegate;
 use constants::{MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
+use crate::constants::APP_NAME;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 enum Annotation {
@@ -89,7 +90,7 @@ pub struct GrabData {
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(build_ui())
-        .title("Screen grabbing Utility")
+        .title(APP_NAME)
         .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
 
     let file = File::open("settings.json").unwrap();
