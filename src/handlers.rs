@@ -24,10 +24,37 @@ impl AppDelegate<GrabData> for Delegate {
             // TODO: set initial value for parameters who need it
             // Handle the window close event
             println!("Closing the window");
-            // reset data
-            reset_data(data);
+            // create a data copy to save into json, without actually modifying data (NEEDED FOR LINUX)
+            let json_data = GrabData {
+                screenshot_number: data.screenshot_number,
+                monitor_index: data.monitor_index,
+                image_data_old: vec![],
+                image_data_new: vec![],
+                save_path: data.save_path.clone(),
+                save_format: data.save_format.clone(),
+                press: false,
+                first_screen: true,
+                scale_factors: (1.0, 1.0),
+                image_size: data.image_size,
+                positions: vec![],
+                offsets: (0.0, 0.0),
+                hotkey: data.hotkey.clone(),
+                hotkey_new: vec![],
+                hotkey_sequence: 0,
+                set_hot_key: false,
+                delay: data.delay.clone(),
+                delay_length: data.delay_length,
+                input_timer_error: (false,"Invalid Input: Only Positive Number are Allowed.".to_string()),
+                input_hotkey_error: (false,"Invalid Input: Wrong Hotkey.".to_string()),
+                trigger_ui: false,
+                annotation: Annotation::None,
+                color: data.color,
+                text_annotation: "".to_string(),
+                text_size: data.text_size,
+                highlighter_width: data.highlighter_width,
+            };
             let file = File::create("settings.json").unwrap();
-            to_writer(file, data).unwrap();
+            to_writer(file, &json_data).unwrap();
             // the event keep processing and the window is closed
             return druid::Handled::No;
         }
