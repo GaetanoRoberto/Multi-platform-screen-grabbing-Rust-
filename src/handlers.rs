@@ -39,7 +39,7 @@ impl AppDelegate<GrabData> for Delegate {
                 offsets: (0.0, 0.0),
                 hotkey: data.hotkey.clone(),
                 hotkey_new: vec![],
-                hotkey_sequence: 0,
+                hotkey_pressed: vec![],
                 set_hot_key: false,
                 delay: data.delay.clone(),
                 delay_length: data.delay_length,
@@ -77,7 +77,11 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                     ctx.request_focus();
                 }
             }
-
+            Event::KeyUp(event) => {
+                if data.hotkey.contains(&event.key.to_string()) {
+                    data.hotkey_pressed = vec![];
+                }
+            }
             Event::KeyDown(key_event) => {
                 if data.set_hot_key {
                     // capture and set the hotkey for screen grabbing
@@ -97,17 +101,20 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                     }
                 } else {
 
-                    // check current combination of the hotkey
-                    if data.hotkey[data.hotkey_sequence] == key_event.key.to_string() {
-                        data.hotkey_sequence+=1;
-                    } else {
-                        data.hotkey_sequence = 0;
+                    // check key of hotkey not yet pressed
+                    if data.hotkey.contains(&key_event.key.to_string())   {
+
+                        if !data.hotkey_pressed.contains(&key_event.key.to_string()) {
+                            data.hotkey_pressed.push(key_event.key.to_string());
+                        }
+                    }else {
+                        data.hotkey_pressed = vec![];
                     }
                     // if the pressed keys corresponds to the hotkey combination, acquire the screen
-                    if data.hotkey_sequence == data.hotkey.len() {
+                    if data.hotkey_pressed.len() == data.hotkey.len() {
                         // acquire screen
                         start_screening(ctx,data.monitor_index,data);
-                        data.hotkey_sequence = 0;
+                        data.hotkey_pressed = vec![];
                     }
                 }
             }
@@ -158,18 +165,6 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
                     }
                 }
             }
-            /*Event::Internal(internal_event) => {
-                // Check if it's a timer event for a specific widget ID
-                if let InternalEvent::RouteTimer(token, widget_id) = internal_event {
-                    if *token == TimerToken::from_raw(data.timer_id) {
-                        println!("Time elapsed: {} seconds",data.delay);
-                        start_screening(ctx,data.monitor_index);
-                    }
-                } else {
-                    // For other internal events, propagate them
-                    child.event(ctx, event, data, env);
-                }
-            }*/
             _ => {
                 // propagates other event in order to allow user input
                 child.event(ctx, event, data, env);
@@ -177,87 +172,3 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
         }
     }
 }
-
-/*pub struct ImageSizeWidget {
-    width: f64,
-    height: f64,
-}
-
-impl ImageSizeWidget {
-    // Constructor function to create an instance with default values
-    pub fn new() -> Self {
-        ImageSizeWidget {
-            width: 0.0,  // Default width
-            height: 0.0, // Default height
-        }
-    }
-}
-
-impl Widget<GrabData> for ImageSizeWidget {
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut GrabData, env: &Env) {
-        match event {
-            Event::Command(cmd) => {
-                if cmd.is(druid::commands::SHOW_PREFERENCES) {
-                    // Handle the custom command here
-                    data.image_size.0 = self.width;
-                    data.image_size.1 = self.height;
-                    println!("{:?}", data.image_size);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &GrabData, env: &Env) {
-        ctx.submit_command(druid::commands::SHOW_PREFERENCES);
-        //println!("send command");
-    }
-
-    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &GrabData, data: &GrabData, env: &Env) {
-    }
-
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &GrabData, env: &Env) -> druid::Size {
-        bc.max()
-    }
-
-    fn paint(&mut self, paint_ctx: &mut PaintCtx, data: &GrabData, env: &Env) {
-        let mut image = load_image(data);
-        let rgba_image = image.to_rgba8();
-
-        let image_buf = ImageBuf::from_raw(
-            rgba_image.clone().into_raw(),
-            ImageFormat::RgbaSeparate,
-            rgba_image.clone().width() as usize,
-            rgba_image.clone().height() as usize,
-        );
-
-        // Create an Image widget with your image
-        let mut image = Image::new(image_buf);
-
-        let image_width = rgba_image.width() as f64;
-        let image_height = rgba_image.height() as f64;
-
-        // Calculate the size of the image within the constraints of the Sized Box
-        let constraints = paint_ctx.size(); // Get the constraints (size of the SizedBox)
-        let mut scaled_width = image_width;
-        let mut scaled_height = image_height;
-
-        // Calculate the scaled size while preserving aspect ratio
-        if image_width > constraints.width || image_height > constraints.height {
-            let width_ratio = constraints.width / image_width;
-            let height_ratio = constraints.height / image_height;
-            let scale_factor = width_ratio.min(height_ratio);
-
-            scaled_width *= scale_factor;
-            scaled_height *= scale_factor;
-        }
-
-        image.paint(paint_ctx, data, env);
-
-        // Store the actual rendered size of the image
-        self.width = scaled_width;
-        self.height = scaled_height;
-
-        println!("box {}\nimage {:?}",constraints,(self.width,self.height));
-    }
-}*/

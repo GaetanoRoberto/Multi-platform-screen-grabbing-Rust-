@@ -73,7 +73,8 @@ pub struct GrabData {
     hotkey: Vec<String>,
     #[data(ignore)]
     hotkey_new: Vec<String>,
-    hotkey_sequence: usize,
+    #[data(ignore)]
+    hotkey_pressed:  Vec<String>,
     set_hot_key: bool,
     delay: String,
     delay_length: usize,
