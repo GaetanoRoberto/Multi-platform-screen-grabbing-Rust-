@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::time::Duration;
 use druid::widget::{Button, Controller, Flex, Image, Label, Padding, SizedBox, TextBox, ValueTextBox, ZStack};
-use druid::{AppLauncher, Color, Command, Env, Event, EventCtx, ImageBuf, Insets, KbKey, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
+use druid::{AppLauncher, Color, Command, Env, Event, EventCtx, ImageBuf, Insets, KbKey, Point, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::ImageFormat;
 use druid_widget_nursery::{AdvancedSlider, DropdownSelect, WidgetExt as OtherWidgetExt};
 use image::{DynamicImage, EncodableLayout, load_from_memory_with_format, Rgba};
@@ -13,7 +13,7 @@ use screenshots::Screen;
 use serde_json::{from_reader, to_writer};
 use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT, OPACITY, WINDOW_MULTIPLIER, APP_NAME};
 use crate::{Annotation, GrabData};
-use crate::utilities::{image_to_buffer, load_image, resize_image};
+use crate::utilities::{compute_screening_coordinates, image_to_buffer, load_image, resize_image};
 use crate::image_screen::ScreenshotWidget;
 use crate::handlers::{Delegate, Enter, NumericTextBoxController};
 use crate::utilities::reset_data;
@@ -27,8 +27,10 @@ use crate::grab_data_derived_lenses::hotkey;
 pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut GrabData) {
     // reset completely data in order to take a screenshot from scratch
     reset_data(data);
-    let screen = Screen::all().unwrap()[monitor_index];
-    let rect = druid::Screen::get_monitors()[monitor_index].virtual_rect();
+    /*let screen = Screen::all().unwrap()[monitor_index];
+    let rect = druid::Screen::get_monitors()[monitor_index].virtual_rect();*/
+    let (x_min,y_min,x_max,y_max) = compute_screening_coordinates(data);
+    println!("{:?}",(x_min,y_min,x_max,y_max));
     ctx.window().close();
     ctx.new_window(
         WindowDesc::new(
@@ -37,8 +39,8 @@ pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut Grab
             .show_titlebar(false)
             .resizable(false)
             .transparent(true)
-            .set_position((rect.x0,rect.y0))
-            .window_size(Size::new(screen.display_info.width as f64,screen.display_info.height as f64)));
+            .set_position(Point::from((x_min as f64,y_min as f64)))
+            .window_size(Size::new((x_max - x_min) as f64,(y_max - y_min) as f64)));
 
 }
 

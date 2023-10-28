@@ -26,7 +26,7 @@ use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
 use image::codecs::pnm::ArbitraryTuplType::RGBAlpha;
 use serde_json::error::Category::Data;
 use crate::grab_data_derived_lenses::highlighter_width;
-use crate::utilities::{compute_offsets, make_rectangle_from_points, load_image, compute_circle_center_radius, compute_arrow_points, image_to_buffer, compute_highlighter_points, resize_image};
+use crate::utilities::{compute_offsets, make_rectangle_from_points, load_image, compute_circle_center_radius, compute_arrow_points, image_to_buffer, compute_highlighter_points, resize_image, screen_all};
 
 pub struct ScreenshotWidget;
 
@@ -88,10 +88,11 @@ impl Widget<GrabData> for ScreenshotWidget {
                     min_y = (min_y2 * scale_factor_y) as i32;
                     max_y = (max_y2 * scale_factor_y) as i32;
 
-                    let image = screen.capture_area(min_x + BORDER_WIDTH as i32, min_y + BORDER_WIDTH as i32, (max_x - (min_x + 2*BORDER_WIDTH as i32)) as u32, (max_y - (min_y + 2*BORDER_WIDTH as i32)) as u32).unwrap();
+                    /*let image = screen.capture_area(min_x + BORDER_WIDTH as i32, min_y + BORDER_WIDTH as i32, (max_x - (min_x + 2*BORDER_WIDTH as i32)) as u32, (max_y - (min_y + 2*BORDER_WIDTH as i32)) as u32).unwrap();
                     let buffer = image.to_png(None).unwrap();
 
-                    data.image_data_old = buffer;
+                    data.image_data_old = buffer;*/
+                    screen_all(min_x,min_y,max_x,max_y,data);
                     // empty positions
                     data.positions = vec![];
                 }

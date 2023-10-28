@@ -27,6 +27,7 @@ impl AppDelegate<GrabData> for Delegate {
             let json_data = GrabData {
                 screenshot_number: data.screenshot_number,
                 monitor_index: data.monitor_index,
+                monitors_info: vec![],
                 image_data_old: vec![],
                 image_data_new: vec![],
                 save_path: data.save_path.clone(),
