@@ -671,7 +671,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
                 return "Click and Drag to Draw an Arrow: ".to_string();
             }
             Annotation::Text => {
-                return "Click to Select the Point where writing text, then write it through the textbox and select the font size:".to_string();
+                return "Click on image, write text in textbox, and select font size:".to_string();
             }
         }
     }).fix_size(10000.0, 20.0);
