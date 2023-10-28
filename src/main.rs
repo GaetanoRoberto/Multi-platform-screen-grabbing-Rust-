@@ -56,8 +56,6 @@ pub struct GrabData {
     screenshot_number: u32,
     monitor_index: usize,
     #[data(ignore)]
-    monitors_info: Vec<(i32,i32)>,
-    #[data(ignore)]
     image_data_old: Vec<u8>,
     #[data(ignore)]
     image_data_new: Vec<u8>,
