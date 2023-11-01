@@ -8,7 +8,7 @@ mod utilities;
 use std::env;
 use std::arch::x86_64::_addcarry_u32;
 use std::fs::File;
-use std::io::Read;
+use std::io::Write;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::ptr::null;
@@ -36,7 +36,7 @@ use crate::image_screen::ScreenshotWidget;
 use crate::main_gui_building::build_ui;
 use crate::handlers::Delegate;
 use constants::{MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
-use crate::constants::APP_NAME;
+use crate::constants::{APP_NAME, INIT_FILE};
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 enum Annotation {
@@ -90,6 +90,24 @@ pub struct GrabData {
 }
 
 fn main() -> Result<(), PlatformError> {
+    // if settings does not exists, create it from the init hardcoded file
+    let result = File::open("settings.json");
+    let mut data: GrabData;
+    match result  {
+        Ok(settings) => {
+            // file exists, use it
+            println!("exists");
+            data = from_reader(settings).unwrap();
+        }
+        Err(_) => {
+            // file not exists, initialize data and create settings.json from init.json file
+            println!("not exists");
+            let mut settings = File::create("settings.json").unwrap();
+            data = serde_json::from_slice(INIT_FILE).unwrap();
+            settings.write_all(serde_json::to_string(&data).unwrap().as_bytes()).unwrap();
+        }
+    }
+
     let main_window = WindowDesc::new(build_ui())
         .title(APP_NAME)
         .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
