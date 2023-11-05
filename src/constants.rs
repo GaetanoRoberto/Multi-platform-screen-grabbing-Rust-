@@ -1,4 +1,5 @@
 pub const APP_NAME: &str = "Multi-platform screen-grabbing utility";
+pub const INIT_FILE : &[u8] = include_bytes!("../init.json");
 pub const BUTTON_WIDTH: f64 = 80.0;
 pub const BUTTON_HEIGHT: f64 = 25.0;
 pub const NORMAL_BIG_IMAGE_LIMIT : f64 = 0.5;

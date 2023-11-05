@@ -2,10 +2,11 @@
 
 use std::f64::consts::PI;
 use druid::{EventCtx, MouseEvent, Point, Size, Vec2};
-use image::{DynamicImage, load_from_memory_with_format};
+use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
+use image::{DynamicImage, GenericImage, load_from_memory_with_format};
 use screenshots::Screen;
 use crate::{Annotation, GrabData};
-use crate::constants::{BUTTON_HEIGHT, NORMAL_BIG_IMAGE_LIMIT, OFFSET_X, OFFSET_Y, SMALL_IMAGE_LIMIT};
+use crate::constants::{BORDER_WIDTH, BUTTON_HEIGHT, NORMAL_BIG_IMAGE_LIMIT, OFFSET_X, OFFSET_Y, SMALL_IMAGE_LIMIT};
 use image::imageops::FilterType;
 
 pub fn compute_offsets(ctx: &mut EventCtx, data: &mut GrabData) {
@@ -233,4 +234,99 @@ pub fn reset_data(data: &mut GrabData) {
     data.trigger_ui = false;
     data.annotation = Annotation::None;
     data.text_annotation = "".to_string();
+}
+
+struct ScreenImage {
+    screen: screenshots::Screen,
+    image: screenshots::Image,
+}
+
+pub fn compute_screening_coordinates(data: &mut GrabData) -> (i32,i32,i32,i32) {
+    /* get monitors info
+    let mut accumulator = (0,0);
+    for screen in Screen::all().unwrap() {
+        accumulator.0 += screen.display_info.x as i32;
+        accumulator.1 += screen.display_info.y as i32;
+        data.monitors_info.push(accumulator);
+    }*/
+
+    // Capture all screens
+    let screen_images = Screen::all()
+        .unwrap()
+        .into_iter()
+        .collect::<Vec<_>>();
+
+    // Compute coordinates of combined image
+    let x_min = screen_images.iter().map(|s| s.display_info.x).min().unwrap();
+    let y_min = screen_images.iter().map(|s| s.display_info.y).min().unwrap();
+    let x_max = screen_images
+        .iter()
+        .map(|s| s.display_info.x + s.display_info.width as i32)
+        .max()
+        .unwrap();
+    let y_max = screen_images
+        .iter()
+        .map(|s| s.display_info.y + s.display_info.height as i32)
+        .max()
+        .unwrap();
+
+    (x_min,y_min,x_max,y_max)
+}
+
+pub fn screen_all(min_x_grab: i32,min_y_grab: i32,max_x_grab: i32,max_y_grab: i32,data: &mut GrabData) {
+    // Capture all screens
+    let screen_images = Screen::all()
+        .unwrap()
+        .into_iter()
+        .map(|screen| {
+            let image = screen.capture().unwrap();
+            ScreenImage { screen, image }
+        })
+        .collect::<Vec<_>>();
+
+    let (x_min,y_min,x_max,y_max) = compute_screening_coordinates(data);
+    let offset = (x_min, y_min);
+    let size = ((x_max - x_min) as u32, (y_max - y_min) as u32);
+
+    /*println!("Total screenshot size: {:?}", size);
+    println!("Offset: {:?}", offset);*/
+    /*let mut size = (0, 0);
+    // find only useful monitors
+    let mut useful_monitors = vec![];
+    let init_grab = (min_x_grab,min_y_grab);
+    let end_grab = (max_x_grab,max_y_grab);
+    let size_grab = (max_x_grab - min_x_grab,max_y_grab - min_y_grab);
+    for (index,screen_image) in screen_images.iter().enumerate() {
+        if init_grab.0 >= data.monitors_info[index].0 || end_grab.0 >= data.monitors_info[index].0 {
+            useful_monitors.push(screen_image);
+            size.0 += screen_image.screen.display_info.width;
+            size.1 = size.1.max(screen_image.screen.display_info.height);
+        }
+    }
+    // Allocate combined image
+    println!("useful: {}",useful_monitors.len());*/
+
+    let mut img = DynamicImage::new_rgba8(size.0,size.1);
+    for screen_image in screen_images {
+        let screenshot = image::io::Reader::new(std::io::Cursor::new(screen_image.image.to_png(None).unwrap()))
+            .with_guessed_format()
+            .unwrap()
+            .decode()
+            .unwrap();
+        img.copy_from(
+            &screenshot,
+            (screen_image.screen.display_info.x - offset.0) as u32,
+            (screen_image.screen.display_info.y - offset.1) as u32,
+        )
+            .unwrap();
+    }
+
+    img = img.crop(
+        (((min_x_grab as f64 - data.offsets.0) * data.scale_factors.0) + BORDER_WIDTH) as u32,
+        (((min_y_grab as f64 - data.offsets.1) * data.scale_factors.1) + BORDER_WIDTH) as u32,
+        (((max_x_grab as f64- data.offsets.0) - ((min_x_grab as f64 - data.offsets.0) + 2.0 * BORDER_WIDTH)) * data.scale_factors.0) as u32,
+        (((max_y_grab as f64- data.offsets.1) - ((min_y_grab as f64 - data.offsets.1) + 2.0 * BORDER_WIDTH)) * data.scale_factors.1) as u32
+    );
+
+    data.image_data_old = image_to_buffer(img);
 }
