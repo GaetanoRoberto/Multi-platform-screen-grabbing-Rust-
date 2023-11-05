@@ -76,9 +76,7 @@ pub struct GrabData {
     #[data(ignore)]
     hotkey_pressed:  Vec<String>,
     set_hot_key: bool,
-    delay: String,
-    delay_length: usize,
-    input_timer_error: (bool,String),
+    delay: f64,
     input_hotkey_error: (bool,String),
     trigger_ui: bool,
     #[data(ignore)]
@@ -92,7 +90,7 @@ pub struct GrabData {
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(build_ui())
         .title(APP_NAME)
-        .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
+        .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)).resizable(false);
 
     let file = File::open("settings.json").unwrap();
     let data: GrabData = from_reader(file).unwrap();

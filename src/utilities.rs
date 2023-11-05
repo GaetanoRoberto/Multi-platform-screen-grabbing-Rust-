@@ -229,7 +229,6 @@ pub fn reset_data(data: &mut GrabData) {
     data.hotkey_new = vec![];
     data.hotkey_pressed = vec![];
     data.set_hot_key = false;
-    data.input_timer_error = (false,"Invalid Input: Only Positive Number are Allowed.".to_string());
     data.input_hotkey_error = (false,"Invalid Input: Wrong Hotkey.".to_string());
     data.trigger_ui = false;
     data.annotation = Annotation::None;

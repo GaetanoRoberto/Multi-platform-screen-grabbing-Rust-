@@ -42,8 +42,6 @@ impl AppDelegate<GrabData> for Delegate {
                 hotkey_pressed: vec![],
                 set_hot_key: false,
                 delay: data.delay.clone(),
-                delay_length: data.delay_length,
-                input_timer_error: (false,"Invalid Input: Only Positive Number are Allowed.".to_string()),
                 input_hotkey_error: (false,"Invalid Input: Wrong Hotkey.".to_string()),
                 trigger_ui: false,
                 annotation: Annotation::None,
@@ -69,13 +67,6 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
         match event {
             Event::WindowConnected => {
                 ctx.request_focus();
-            }
-            Event::MouseDown(mouse) => {
-                if mouse.button.is_left() {
-                    data.input_timer_error.0 = false;
-                    ctx.resign_focus();
-                    ctx.request_focus();
-                }
             }
             Event::KeyUp(event) => {
                 if data.hotkey.contains(&event.key.to_string()) {
@@ -137,38 +128,5 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
 
     fn update(&mut self, child: &mut W, ctx: &mut druid::UpdateCtx, old_data: &GrabData, data: &GrabData, env: &Env) {
         child.update(ctx, old_data, data, env)
-    }
-}
-
-pub struct NumericTextBoxController;
-
-impl<W: Widget<GrabData>> Controller<GrabData, W> for NumericTextBoxController {
-    fn event(&mut self, child: &mut W, ctx: &mut EventCtx, event: &Event, data: &mut GrabData, env: &druid::Env) {
-        match event {
-            Event::KeyDown(key_event) => {
-                // remove error if widget lose focus (when pressing enter)
-                if key_event.key.to_string() == "Enter" {
-                    data.input_timer_error.0 = false;
-                }
-            }
-            Event::KeyUp(key_event) => {
-                // if lenght of the input field has not changed, it means that there is a wrong user input
-                if !(data.delay_length == data.delay.len() && data.delay_length == 0 && key_event.key.to_string() == "Backspace") {
-                    if data.delay_length == data.delay.len() {
-                        data.input_timer_error.0 = true;
-                        // set error message in case empty input happened
-                        data.input_timer_error.1 = "Invalid Input: Only Positive Number are Allowed.".to_string();
-                    } else {
-                        // all ok, update the length of the field
-                        data.input_timer_error.0 = false;
-                        data.delay_length = data.delay.len();
-                    }
-                }
-            }
-            _ => {
-                // propagates other event in order to allow user input
-                child.event(ctx, event, data, env);
-            }
-        }
     }
 }
