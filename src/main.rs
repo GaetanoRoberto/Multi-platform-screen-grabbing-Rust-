@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 mod image_screen;
 mod constants;
 mod main_gui_building;

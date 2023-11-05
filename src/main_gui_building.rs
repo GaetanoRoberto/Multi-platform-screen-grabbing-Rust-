@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::time::Duration;
 use druid::widget::{Button, Controller, Flex, Image, Label, Padding, SizedBox, Stepper, TextBox, ValueTextBox, ZStack};
-use druid::{AppLauncher, Color, Command, Env, Event, EventCtx, ImageBuf, Insets, KbKey, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
+use druid::{AppLauncher, Color, Command, Env, Event, EventCtx, ImageBuf, Insets, KbKey, Point, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
 use druid::piet::ImageFormat;
 use druid_widget_nursery::{AdvancedSlider, DropdownSelect, WidgetExt as OtherWidgetExt};
 use image::{DynamicImage, EncodableLayout, load_from_memory_with_format, Rgba};
