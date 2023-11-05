@@ -60,7 +60,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                 ctx.set_cursor(&Cursor::Crosshair);
                 if data.press {
                     data.positions.push((mouse_event.window_pos.x,mouse_event.window_pos.y));
-                    //println!("coordinates: {:?}",(mouse_event.window_pos.x,mouse_event.window_pos.y));
                 }
 
             }
@@ -147,7 +146,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                         Annotation::Circle => {
                             // compute the center and the radius
                             let (mut center_x, mut center_y) = compute_circle_center_radius(data, min_x, min_y, max_x, max_y);
-                            println!("Disegno finale");
                             let image = load_image(data);
                             let radius = (((data.scale_factors.0 * (max_x - min_x) as f64).powi(2) + (data.scale_factors.1 * (max_y - min_y) as f64).powi(2)) as f64).sqrt()/ 2.0;
 
@@ -381,7 +379,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                     let p1 = (data.positions[data.positions.len()-1].0 - data.offsets.0,
                               data.positions[data.positions.len()-1].1 - data.offsets.1);
 
-                    //println!("line paint {:?}",(p0,p1));
                     let line_shape = Line::new(p0,p1);
 
                     // Create a line in the widget's coordinate system

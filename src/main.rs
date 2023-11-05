@@ -95,12 +95,10 @@ fn main() -> Result<(), PlatformError> {
     match result  {
         Ok(settings) => {
             // file exists, use it
-            println!("exists");
             data = from_reader(settings).unwrap();
         }
         Err(_) => {
             // file not exists, initialize data and create settings.json from init.json file
-            println!("not exists");
             let mut settings = File::create("settings.json").unwrap();
             data = serde_json::from_slice(INIT_FILE).unwrap();
             settings.write_all(serde_json::to_string(&data).unwrap().as_bytes()).unwrap();

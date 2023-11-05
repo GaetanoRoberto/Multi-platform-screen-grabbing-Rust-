@@ -22,7 +22,6 @@ impl AppDelegate<GrabData> for Delegate {
     ) -> druid::Handled {
         if cmd.is(commands::CLOSE_WINDOW) {
             // Handle the window close event
-            println!("Closing the window");
             // create a data copy to save into json, without actually modifying data (NEEDED FOR LINUX)
             let json_data = GrabData {
                 screenshot_number: data.screenshot_number,

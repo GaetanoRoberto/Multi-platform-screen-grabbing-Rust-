@@ -30,7 +30,6 @@ pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut Grab
     /*let screen = Screen::all().unwrap()[monitor_index];
     let rect = druid::Screen::get_monitors()[monitor_index].virtual_rect();*/
     let (x_min,y_min,x_max,y_max) = compute_screening_coordinates(data);
-    println!("{:?}",(x_min,y_min,x_max,y_max));
     ctx.window().close();
     ctx.new_window(
         WindowDesc::new(
@@ -260,9 +259,6 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
             move |_ctx, _data: &mut GrabData, _env| {
                 if _data.set_hot_key == true {
                     // edit
-                    /* for s in _data.hotkey_new.clone() {
-                         println!("edit {}", s);
-                     }*/
                     _data.hotkey_new.clear();
                     _data.set_hot_key = false;
                     _data.input_hotkey_error.0 = false;
@@ -307,7 +303,6 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                         // save the file and increment the screenshot counter
                         // if the user selected a custom filename, no need to increment the automatic inner counter
                         if path.file_name().unwrap().to_string_lossy().to_string().contains("Screen") {
-                            println!("Increment no filename changed");
                             if _data.screenshot_number == u32::MAX {
                                 _data.screenshot_number = 0;
                             } else {
@@ -321,7 +316,6 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                     }
                     None => {
                         // The user canceled the dialog.
-                        println!("Dialog Cancelled");
                     }
                 }
             }
@@ -390,7 +384,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                             data.save_path = path.into_boxed_path();
                         }
                         None => {
-                            println!("Dialog Cancelled");
+                            //the user cancelled the dialog
                         }
                     }
                 }

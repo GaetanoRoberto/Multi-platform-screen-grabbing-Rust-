@@ -13,15 +13,12 @@ pub fn compute_offsets(ctx: &mut EventCtx, data: &mut GrabData) {
     // Calculate the offset to center mouse positions in the Image
     //let size = ctx.size();
     let widget_size = ctx.window().get_size();
-    //println!("rescale window {}",widget_size);
     let image_width = data.image_size.0;
     let image_height = data.image_size.1;
     let x_offset = ((widget_size.width - image_width) / 2.0);
     // take into account BUTTON_HEIGHT * 3.0 more height to make highliter and text widget visible
     let y_offset = ((widget_size.height - BUTTON_HEIGHT * 3.0 - image_height) / 2.0);
-    //println!("window {} {}",widget_size.width, widget_size.height);
-    //println!("image {} {}",image_width, image_height);
-    //println!("offset {} {}",x_offset,y_offset);
+
     if !data.first_screen {
         if x_offset < 1.0 {
             data.offsets.0 = x_offset;
@@ -175,13 +172,11 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
 
     } else if image.width() <= (screen.display_info.width as f64 * SMALL_IMAGE_LIMIT) as u32 && image.height() <= (screen.display_info.height as f64 * SMALL_IMAGE_LIMIT) as u32 {
         // VERY SMALL IMAGE (<= 20% of the screen)
-        println!("small small");
         scale_factor_x = 0.25;
         scale_factor_y = 0.25;
         //image = image.resize((screen.display_info.width / 4), (screen.display_info.height / 4), FilterType::Nearest);
     }else{
         // SMALL IMAGE (20% of the screen < size < 50% of the screen)
-        println!("small");
         scale_factor_x = (image.width() as f64 * 1.4) / (screen.display_info.width as f64);
         scale_factor_y = (image.height() as f64 * 1.4) / (screen.display_info.height as f64);
     }
@@ -212,7 +207,6 @@ pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) 
     // data.scale_factors.push(((image.width() as f64 / scaled_width),(image.height() as f64 / scaled_height)));
     data.scale_factors.0 = image.width() as f64 / scaled_width;
     data.scale_factors.1 = image.height() as f64 / scaled_height;
-    println!("scale factors {:?}",data.scale_factors);
 
     (scaled_width,scaled_height)
 }
@@ -287,24 +281,6 @@ pub fn screen_all(min_x_grab: i32,min_y_grab: i32,max_x_grab: i32,max_y_grab: i3
     let (x_min,y_min,x_max,y_max) = compute_screening_coordinates(data);
     let offset = (x_min, y_min);
     let size = ((x_max - x_min) as u32, (y_max - y_min) as u32);
-
-    /*println!("Total screenshot size: {:?}", size);
-    println!("Offset: {:?}", offset);*/
-    /*let mut size = (0, 0);
-    // find only useful monitors
-    let mut useful_monitors = vec![];
-    let init_grab = (min_x_grab,min_y_grab);
-    let end_grab = (max_x_grab,max_y_grab);
-    let size_grab = (max_x_grab - min_x_grab,max_y_grab - min_y_grab);
-    for (index,screen_image) in screen_images.iter().enumerate() {
-        if init_grab.0 >= data.monitors_info[index].0 || end_grab.0 >= data.monitors_info[index].0 {
-            useful_monitors.push(screen_image);
-            size.0 += screen_image.screen.display_info.width;
-            size.1 = size.1.max(screen_image.screen.display_info.height);
-        }
-    }
-    // Allocate combined image
-    println!("useful: {}",useful_monitors.len());*/
 
     let mut img = DynamicImage::new_rgba8(size.0,size.1);
     for screen_image in screen_images {
