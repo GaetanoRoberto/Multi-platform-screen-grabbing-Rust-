@@ -161,7 +161,7 @@ pub fn compute_highlighter_points(data: &GrabData) -> Option<(Point, Point, Poin
 
 // Image Resizing
 pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) {
-    let screen = Screen::all().unwrap()[data.monitor_index];
+    let screen = Screen::all().unwrap()[0];
     let mut scale_factor_x ;
     let mut scale_factor_y;
 

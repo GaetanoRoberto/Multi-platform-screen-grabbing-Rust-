@@ -25,7 +25,6 @@ impl AppDelegate<GrabData> for Delegate {
             // create a data copy to save into json, without actually modifying data (NEEDED FOR LINUX)
             let json_data = GrabData {
                 screenshot_number: data.screenshot_number,
-                monitor_index: data.monitor_index,
                 image_data_old: vec![],
                 image_data_new: vec![],
                 save_path: data.save_path.clone(),
@@ -103,7 +102,7 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                     // if the pressed keys corresponds to the hotkey combination, acquire the screen
                     if data.hotkey_pressed.len() == data.hotkey.len() {
                         // acquire screen
-                        start_screening(ctx,data.monitor_index,data);
+                        start_screening(ctx,data);
                         data.hotkey_pressed = vec![];
                     }
                 }

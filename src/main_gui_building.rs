@@ -24,11 +24,9 @@ use tokio;
 use image::imageops::FilterType;
 use crate::grab_data_derived_lenses::hotkey;
 
-pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut GrabData) {
+pub fn start_screening(ctx: &mut EventCtx, data: &mut GrabData) {
     // reset completely data in order to take a screenshot from scratch
     reset_data(data);
-    /*let screen = Screen::all().unwrap()[monitor_index];
-    let rect = druid::Screen::get_monitors()[monitor_index].virtual_rect();*/
     let (x_min,y_min,x_max,y_max) = compute_screening_coordinates(data);
     ctx.window().close();
     ctx.new_window(
@@ -46,10 +44,9 @@ pub fn start_screening(ctx: &mut EventCtx, monitor_index: usize, data: &mut Grab
 fn create_monitor_buttons() -> Flex<GrabData> {
     //let screens = Screen::all().unwrap();
     let mut monitor_buttons = Flex::row();
-    //let mut monitor_index = 1;
         let btn = Button::new( "📷 Take a Screenshot ".to_owned() ).on_click(
             move |_ctx, _data: &mut GrabData ,_env| {
-                start_screening(_ctx, _data.monitor_index, _data);
+                start_screening(_ctx, _data);
             });
         monitor_buttons.with_child(btn)
 }
@@ -88,7 +85,7 @@ fn create_output_format_dropdown() -> Flex<GrabData> {
     row_dropdown
 }
 
-fn create_hotkey_ui() -> impl Widget<GrabData> {
+/*fn create_hotkey_ui() -> impl Widget<GrabData> {
     let file = File::open("settings.json").unwrap();
     let data: GrabData = from_reader(file).unwrap();
 
@@ -165,7 +162,8 @@ fn create_hotkey_ui() -> impl Widget<GrabData> {
     fusion.add_flex_child(ui_column,1.0);
 
     fusion
-}
+}*/
+
 pub fn settings_window() -> impl Widget<GrabData> {
     let mut ui_row = Flex::column();
     ui_row.add_default_spacer();
@@ -403,11 +401,11 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
     }
 
     #[tokio::main]
-    pub async fn timer_handling(ctx: &mut EventCtx,monitor_index: usize, time: u64, data: &mut GrabData) {
+    pub async fn timer_handling(ctx: &mut EventCtx, time: u64, data: &mut GrabData) {
         // Sleep for time seconds
         tokio::time::sleep(Duration::from_secs(time)).await;
         // take the screenshot
-        start_screening(ctx,monitor_index,data);
+        start_screening(ctx,data);
     }
 
     fn create_timer_settings() -> impl Widget<GrabData> {
@@ -429,7 +427,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
         });
 
         let start_timer_btn = button.on_click(|ctx, data: &mut GrabData, _env| {
-                timer_handling(ctx,data.monitor_index,data.delay as u64,data);
+                timer_handling(ctx,data.delay as u64,data);
         });
 
         ui_row.add_child(start_timer_btn);
@@ -491,7 +489,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
         ui_row2.add_flex_child(Button::from_label(Label::new("⬤")
             .with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3)))
                                    .on_click(|ctx, data: &mut GrabData, _env| {
-                                       let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+                                       let rect = druid::Screen::get_monitors()[0].virtual_rect();
                                        ctx.window().close();
                                        ctx.new_window(WindowDesc::new(create_color_buttons()).title(APP_NAME).window_size((250.0,200.0)).show_titlebar(false).resizable(false).set_position((rect.x0,rect.y0)));
                                    }), 1.0);
@@ -671,7 +669,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
         let (image_width,image_height) = resize_image(image,data);
 
-        let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+        let rect = druid::Screen::get_monitors()[0].virtual_rect();
         let image_buf = ImageBuf::from_raw(
             rgba_image.clone().into_raw(),
             ImageFormat::RgbaSeparate,
@@ -704,7 +702,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
         let (image_width,image_height) = resize_image(image,data);
 
-        let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+        let rect = druid::Screen::get_monitors()[0].virtual_rect();
         let image_buf = ImageBuf::from_raw(
             rgba_image.clone().into_raw(),
             ImageFormat::RgbaSeparate,

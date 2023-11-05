@@ -55,7 +55,6 @@ enum Annotation {
 #[derive(Clone, Data, Serialize, Deserialize, Debug, Lens)]
 pub struct GrabData {
     screenshot_number: u32,
-    monitor_index: usize,
     #[data(ignore)]
     image_data_old: Vec<u8>,
     #[data(ignore)]

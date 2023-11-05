@@ -70,7 +70,6 @@ impl Widget<GrabData> for ScreenshotWidget {
             data.press = false;
 
             if !data.positions.is_empty() {
-                let screen = screenshots::Screen::all().unwrap()[data.monitor_index];
 
                 let (min_x2,min_y2,max_x2,max_y2) = make_rectangle_from_points(data).unwrap();
 
@@ -113,7 +112,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     rgba_image.clone().width() as usize,
                                     rgba_image.clone().height() as usize,
                                 );
-                                let rect = druid::Screen::get_monitors()[data.monitor_index].virtual_rect();
+                                let rect = druid::Screen::get_monitors()[0].virtual_rect();
                                 let (image_width,image_height) = resize_image(dynamic_image,data);
 
                                 ctx.window().close();
