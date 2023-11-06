@@ -145,9 +145,9 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
         // Label with hotkeys
         ui_column.add_flex_child(Label::dynamic(|data: &GrabData, _: &Env| {
             if data.set_hot_key == true {
-                data.hotkey_new.join(" + ")
+                data.hotkey_new.join(" + ").to_ascii_uppercase()
             }else{
-                data.hotkey.join(" + ")
+                data.hotkey.join(" + ").to_ascii_uppercase()
             }
         }), 1.0);
         // label with errors
@@ -667,8 +667,8 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
         ui_column.add_flex_spacer(1.0);
         //hotkey
         ui_column.add_flex_child(Label::dynamic(|data: &GrabData, _: &Env| {
-            let hotkey_text = data.hotkey.join(" + ");
-            format!("Press < {} > to start screening", hotkey_text)
+            let hotkey_text = data.hotkey.join(" + ").to_ascii_uppercase();
+            format!("Press {} to start screening", hotkey_text)
         }), 1.0);
 
 
