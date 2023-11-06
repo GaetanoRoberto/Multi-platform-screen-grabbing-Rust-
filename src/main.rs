@@ -3,7 +3,6 @@ mod image_screen;
 mod constants;
 mod main_gui_building;
 mod handlers;
-mod input_field;
 mod utilities;
 
 use std::env;

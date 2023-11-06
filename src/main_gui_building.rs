@@ -17,7 +17,6 @@ use crate::utilities::{compute_screening_coordinates, image_to_buffer, load_imag
 use crate::image_screen::ScreenshotWidget;
 use crate::handlers::{Delegate, Enter};
 use crate::utilities::reset_data;
-use crate::input_field::PositiveNumberFormatter;
 use native_dialog::{FileDialog};
 use rusttype::Font;
 use tokio;
