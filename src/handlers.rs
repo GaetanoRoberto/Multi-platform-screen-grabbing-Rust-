@@ -1,13 +1,9 @@
-use std::cell::RefCell;
-use std::fs;
 use std::fs::File;
-use druid::{AppDelegate, BoxConstraints, commands, DelegateCtx, Env, Event, EventCtx, ImageBuf, InternalEvent, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Selector, TimerToken, UpdateCtx, Widget, WindowDesc, WindowState};
-use druid::piet::ImageFormat;
-use druid::widget::{Controller, Flex, Image};
+use druid::{AppDelegate, commands, DelegateCtx, Env, Event, EventCtx, Widget};
+use druid::widget::Controller;
 use serde_json::to_writer;
 use crate::{Annotation, GrabData};
-use crate::main_gui_building::{build_ui, start_screening};
-use crate::utilities::{load_image, reset_data, resize_image};
+use crate::main_gui_building::start_screening;
 
 pub struct Delegate;
 

@@ -1,31 +1,15 @@
-use std::borrow::Cow;
-use std::cmp::{max, min};
-use std::fs;
-use std::fs::{create_dir_all, File};
-use std::io::Read;
-use std::path::Path;
-use druid::{Application, BoxConstraints, Clipboard, ClipboardFormat, Color, commands, Cursor, Env, Event, EventCtx, FormatId, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, MouseEvent, Point, Rect, RenderContext, Scale, Screen, Size, UnitPoint, UpdateCtx, Vec2, Widget, WidgetExt, WindowConfig, WindowDesc};
-use druid::piet::{ImageFormat, InterpolationMode};
-use druid::piet::PaintBrush::Fixed;
-use druid::platform_menus::mac::file::print;
-use druid::widget::{ZStack, Button, Container, Flex, Image, SizedBox, FillStrat, Label, ClipBox, Controller};
-use image::{DynamicImage, EncodableLayout, ImageBuffer, load_from_memory_with_format, Rgba};
-use image::imageops::{FilterType, overlay};
-use imageproc::drawing::{Canvas, draw_cross, draw_filled_rect, draw_hollow_circle, draw_hollow_circle_mut, draw_hollow_rect, draw_line_segment, draw_polygon, draw_text};
-use serde_json::{from_reader, to_writer};
-use crate::{main_gui_building::build_ui, constants, GrabData, Annotation};
-use constants::{BUTTON_HEIGHT,BUTTON_WIDTH,SCALE_FACTOR};
-use crate::main_gui_building::{create_annotation_buttons, create_edit_window, create_edit_window_widgets, create_save_cancel_clipboard_buttons, create_selection_window};
-use rusttype::Font;
-use druid::{kurbo::Line, piet::StrokeStyle, kurbo::Shape, PaintCtx};
-use druid::Handled::No;
+use druid::{BoxConstraints, Color, Cursor, Env, Event, EventCtx, ImageBuf, LayoutCtx, LifeCycle, LifeCycleCtx, Rect, RenderContext, Size, UpdateCtx, Widget, WindowDesc};
+use druid::piet::{ImageFormat};
+use druid::widget::{Flex, Image, SizedBox, Label};
+use image::{DynamicImage, ImageBuffer, Rgba};
+use image::imageops::overlay;
+use imageproc::drawing::{draw_hollow_circle, draw_hollow_rect, draw_line_segment, draw_polygon};
+use crate::{constants, GrabData, Annotation};
+use constants::{BUTTON_HEIGHT,BUTTON_WIDTH};
+use crate::main_gui_building::{create_edit_window, create_save_cancel_clipboard_buttons, create_selection_window};
+use druid::kurbo::Line;
 use crate::constants::{APP_NAME, BORDER_WIDTH, TRANSPARENCY};
-use std::f64::consts::PI;
 use druid::kurbo::{BezPath, Circle};
-use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
-use image::codecs::pnm::ArbitraryTuplType::RGBAlpha;
-use serde_json::error::Category::Data;
-use crate::grab_data_derived_lenses::highlighter_width;
 use crate::utilities::{compute_offsets, make_rectangle_from_points, load_image, compute_circle_center_radius, compute_arrow_points, image_to_buffer, compute_highlighter_points, resize_image, screen_all};
 
 pub struct ScreenshotWidget;
@@ -120,7 +104,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                                     .with_child(SizedBox::new(Image::new(buffer)).width(image_width).height(image_height))
                                     .with_child(create_save_cancel_clipboard_buttons())).title(APP_NAME).set_position((rect.x0,rect.y0))
                                     .with_min_size(Size::new(5.0 * BUTTON_WIDTH,3.0* BUTTON_HEIGHT))
-                                    .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 5.0)))
+                                    .window_size(Size::new( image_width,image_height + BUTTON_HEIGHT * 5.0))
                                     .resizable(false));
 
                                 data.positions = vec![];
@@ -144,7 +128,7 @@ impl Widget<GrabData> for ScreenshotWidget {
                         },
                         Annotation::Circle => {
                             // compute the center and the radius
-                            let (mut center_x, mut center_y) = compute_circle_center_radius(data, min_x, min_y, max_x, max_y);
+                            let (center_x, center_y) = compute_circle_center_radius(data, min_x, min_y, max_x, max_y);
                             let image = load_image(data);
                             let radius = (((data.scale_factors.0 * (max_x - min_x) as f64).powi(2) + (data.scale_factors.1 * (max_y - min_y) as f64).powi(2)) as f64).sqrt()/ 2.0;
 
@@ -322,17 +306,17 @@ impl Widget<GrabData> for ScreenshotWidget {
         }
     }
 
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &GrabData, env: &Env) {
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &GrabData, _env: &Env) {
     }
 
-    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &GrabData, data: &GrabData, env: &Env) {
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &GrabData, _data: &GrabData, _env: &Env) {
     }
 
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &GrabData, env: &Env) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &GrabData, _env: &Env) -> Size {
         bc.max()
     }
 
-    fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: & GrabData, env: &druid::Env) {
+    fn paint(&mut self, paint_ctx: &mut druid::PaintCtx, data: & GrabData, _env: &druid::Env) {
         // border color of the current selected color for all the paintings except the rectangle preview
         let mut border_color = Color::rgb8(data.color.0, data.color.1, data.color.2); // White border color
 

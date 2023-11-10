@@ -1,13 +1,11 @@
 // IMAGE SCREEN FUNCTIONS
 
 use std::f64::consts::PI;
-use druid::{EventCtx, MouseEvent, Point, Size, Vec2};
-use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
+use druid::{EventCtx, Point};
 use image::{DynamicImage, GenericImage, load_from_memory_with_format};
 use screenshots::Screen;
 use crate::{Annotation, GrabData};
 use crate::constants::{BORDER_WIDTH, BUTTON_HEIGHT, NORMAL_BIG_IMAGE_LIMIT, OFFSET_X, OFFSET_Y, SMALL_IMAGE_LIMIT};
-use image::imageops::FilterType;
 
 pub fn compute_offsets(ctx: &mut EventCtx, data: &mut GrabData) {
     // Calculate the offset to center mouse positions in the Image
@@ -15,9 +13,9 @@ pub fn compute_offsets(ctx: &mut EventCtx, data: &mut GrabData) {
     let widget_size = ctx.window().get_size();
     let image_width = data.image_size.0;
     let image_height = data.image_size.1;
-    let x_offset = ((widget_size.width - image_width) / 2.0);
+    let x_offset = (widget_size.width - image_width) / 2.0;
     // take into account BUTTON_HEIGHT * 3.0 more height to make highliter and text widget visible
-    let y_offset = ((widget_size.height - BUTTON_HEIGHT * 3.0 - image_height) / 2.0);
+    let y_offset = (widget_size.height - BUTTON_HEIGHT * 3.0 - image_height) / 2.0;
 
     if !data.first_screen {
         if x_offset < 1.0 {
@@ -31,7 +29,7 @@ pub fn compute_offsets(ctx: &mut EventCtx, data: &mut GrabData) {
 }
 
 pub fn load_image(data: &GrabData ) -> DynamicImage {
-    let mut image;
+    let image;
 
     if data.image_data_new.is_empty() {
         image = load_from_memory_with_format(&data.image_data_old, image::ImageFormat::Png)
@@ -160,10 +158,10 @@ pub fn compute_highlighter_points(data: &GrabData) -> Option<(Point, Point, Poin
 }
 
 // Image Resizing
-pub fn resize_image(mut image: DynamicImage, data: &mut GrabData) -> (f64, f64) {
+pub fn resize_image(image: DynamicImage, data: &mut GrabData) -> (f64, f64) {
     let screen = Screen::all().unwrap()[0];
-    let mut scale_factor_x ;
-    let mut scale_factor_y;
+    let scale_factor_x ;
+    let scale_factor_y;
 
     if image.width() >= (screen.display_info.width as f64 * NORMAL_BIG_IMAGE_LIMIT) as u32 || image.height() >= (screen.display_info.height as f64 * NORMAL_BIG_IMAGE_LIMIT) as u32 {
         // NORMAL OR BIG IMAGE (>= 50% of the screen)
@@ -235,7 +233,7 @@ struct ScreenImage {
     image: screenshots::Image,
 }
 
-pub fn compute_screening_coordinates(data: &mut GrabData) -> (i32,i32,i32,i32) {
+pub fn compute_screening_coordinates(_data: &mut GrabData) -> (i32,i32,i32,i32) {
     /* get monitors info
     let mut accumulator = (0,0);
     for screen in Screen::all().unwrap() {

@@ -1,27 +1,23 @@
-use std::{fmt, fs, thread};
+use std::fs;
 use std::borrow::Cow;
-use std::fmt::Debug;
 use std::fs::File;
 use std::time::Duration;
-use druid::widget::{Button, Controller, Flex, Image, Label, Padding, SizedBox, Stepper, TextBox, ValueTextBox, ZStack};
-use druid::{AppLauncher, Color, Command, Env, Event, EventCtx, ImageBuf, Insets, KbKey, Point, Selector, Size, Widget, WidgetExt, WindowConfig, WindowDesc};
+use druid::widget::{Button, Flex, Image, Label, SizedBox, TextBox, ZStack};
+use druid::{Color, Env, EventCtx, ImageBuf, Point, Size, Widget, WidgetExt, WindowDesc};
 use druid::piet::ImageFormat;
-use druid_widget_nursery::{AdvancedSlider, DropdownSelect, WidgetExt as OtherWidgetExt};
+use druid_widget_nursery::DropdownSelect;
 use image::{DynamicImage, EncodableLayout, load_from_memory_with_format, Rgba};
-use imageproc::drawing::{Canvas, draw_text};
-use screenshots::Screen;
+use imageproc::drawing::draw_text;
 use serde_json::{from_reader, to_writer};
 use crate::constants::{BUTTON_HEIGHT, BUTTON_WIDTH, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT, OPACITY, WINDOW_MULTIPLIER, APP_NAME};
 use crate::{Annotation, GrabData};
 use crate::utilities::{compute_screening_coordinates, image_to_buffer, load_image, resize_image};
 use crate::image_screen::ScreenshotWidget;
-use crate::handlers::{Delegate, Enter};
+use crate::handlers::Enter;
 use crate::utilities::reset_data;
 use native_dialog::{FileDialog};
 use rusttype::Font;
 use tokio;
-use image::imageops::FilterType;
-use crate::grab_data_derived_lenses::hotkey;
 
 pub fn start_screening(ctx: &mut EventCtx, data: &mut GrabData) {
     // reset completely data in order to take a screenshot from scratch
@@ -42,7 +38,7 @@ pub fn start_screening(ctx: &mut EventCtx, data: &mut GrabData) {
 
 fn create_monitor_buttons() -> Flex<GrabData> {
     //let screens = Screen::all().unwrap();
-    let mut monitor_buttons = Flex::row();
+    let monitor_buttons = Flex::row();
         let btn = Button::new( "📷 Take a Screenshot ".to_owned() ).on_click(
             move |_ctx, _data: &mut GrabData ,_env| {
                 start_screening(_ctx, _data);
@@ -289,7 +285,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
             return "Current Path: ".to_owned() + data.save_path.to_str().unwrap();
         });
 
-        let change_path_button = Button::new("📁").on_click(|ctx, data: &mut GrabData, _env| {
+        let change_path_button = Button::new("📁").on_click(|_ctx, data: &mut GrabData, _env| {
             let result = FileDialog::new()
                 .set_location(data.save_path.to_str().unwrap())
                 .show_open_single_dir();
@@ -335,7 +331,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
             //}
         });
         let slider = druid::widget::Slider::new().with_range(1.0, 20.0).with_step(1.0).lens(GrabData::delay);
-        let mut ui_row = Flex::row().with_child(slider).with_child(seconds_label);
+        let ui_row = Flex::row().with_child(slider).with_child(seconds_label);
         Flex::column().with_child(ui_row)
 
     }
@@ -408,7 +404,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
         ui_row2.add_default_spacer();
         ui_row2.add_flex_child(Button::from_label(Label::new("⬤")
             .with_text_color(Color::rgba8(data.color.0,data.color.1,data.color.2,data.color.3)))
-                                   .on_click(|ctx, data: &mut GrabData, _env| {
+                                   .on_click(|ctx, _data: &mut GrabData, _env| {
                                        let rect = druid::Screen::get_monitors()[0].virtual_rect();
                                        ctx.window().close();
                                        ctx.new_window(WindowDesc::new(create_color_buttons()).title(APP_NAME).window_size((250.0,200.0)).show_titlebar(false).resizable(false).set_position((rect.x0,rect.y0)));
@@ -462,7 +458,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
     }
 
     pub fn create_edit_window_widgets(data: &GrabData) -> impl Widget<GrabData> {
-        let mut ui_column = Flex::column();
+        let ui_column = Flex::column();
         let mut ui_row1 = Flex::row();
 
         let approve = Button::new("✔").on_click(|ctx, data: &mut GrabData ,_env| {
@@ -609,7 +605,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
                 ).with_child(create_edit_window_widgets(data)).controller(Enter))
                 .title(APP_NAME)
                 .set_position((rect.x0,rect.y0))
-                .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 7.0)))
+                .window_size(Size::new( image_width,image_height + BUTTON_HEIGHT * 7.0))
                 .with_min_size(Size::new((5.0 * BUTTON_WIDTH).max(image_width * WINDOW_MULTIPLIER),3.0* BUTTON_HEIGHT ))
                 .resizable(true))
     }
@@ -617,7 +613,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
     pub fn create_selection_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
-        let mut image = load_image(data);
+        let image = load_image(data);
         let rgba_image = image.to_rgba8();
 
         let (image_width,image_height) = resize_image(image,data);
@@ -640,7 +636,7 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
                     .with_child(create_annotation_buttons())).controller(Enter))
                 .title(APP_NAME)
                 .set_position((rect.x0,rect.y0))
-                .window_size(Size::new( image_width,(image_height + BUTTON_HEIGHT * 7.0)))
+                .window_size(Size::new( image_width,image_height + BUTTON_HEIGHT * 7.0))
                 .with_min_size(Size::new((5.0 * BUTTON_WIDTH).max(image_width * WINDOW_MULTIPLIER),3.0 * BUTTON_HEIGHT ))
                 .resizable(true))
     }

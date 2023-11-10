@@ -5,34 +5,13 @@ mod main_gui_building;
 mod handlers;
 mod utilities;
 
-use std::env;
-use std::arch::x86_64::_addcarry_u32;
 use std::fs::File;
 use std::io::Write;
-use std::ops::Deref;
-use std::path::{Path, PathBuf};
-use std::ptr::null;
-use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
-use druid::{HotKey, KeyEvent, Lens, TimerToken};
-use druid::{commands, ImageBuf, Application, Data, Widget, LocalizedString, WindowDesc, AppLauncher, PlatformError, widget::{Image, Label, Button, Flex}, WidgetExt, AppDelegate, DelegateCtx, WindowId, piet, LifeCycleCtx, LifeCycle, Env, RenderContext, Event, UpdateCtx, LayoutCtx, BoxConstraints, Size, PaintCtx, EventCtx, Rect, Scale, Point};
-use druid::keyboard_types::Key;
-use druid::kurbo::common::factor_quartic_inner;
-use druid::piet::{ImageFormat, TextStorage};
-use druid::platform_menus::mac::file::print;
-use druid::platform_menus::win::file::print_preview;
-use druid::widget::{Controller, List, RadioGroup, TextBox};
-use druid_widget_nursery::{DropdownSelect};
-use grab_data_derived_lenses::save_format;
-use screenshots::{DisplayInfo, Screen};
+use std::path::Path;
+use druid::Lens;
+use druid::{Data, WindowDesc, AppLauncher, PlatformError};
 use serde::{Serialize,Deserialize};
-use serde_json::{to_writer,from_reader};
-use image::{open, DynamicImage, ImageBuffer, Rgba, GenericImageView, load_from_memory_with_format};
-use serde::de::Unexpected::Str;
-use druid_widget_nursery::Dropdown;
-use druid_widget_nursery::dropdown::{DROPDOWN_CLOSED, DROPDOWN_SHOW};
-use druid_widget_nursery::stack_tooltip::tooltip_state_derived_lenses::data;
-use crate::image_screen::ScreenshotWidget;
+use serde_json::from_reader;
 use crate::main_gui_building::build_ui;
 use crate::handlers::Delegate;
 use constants::{MAIN_WINDOW_WIDTH,MAIN_WINDOW_HEIGHT};
@@ -89,7 +68,7 @@ pub struct GrabData {
 fn main() -> Result<(), PlatformError> {
     // if settings does not exists, create it from the init hardcoded file
     let result = File::open("settings.json");
-    let mut data: GrabData;
+    let data: GrabData;
     match result  {
         Ok(settings) => {
             // file exists, use it
