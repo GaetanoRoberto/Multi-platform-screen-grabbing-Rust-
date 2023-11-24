@@ -1,9 +1,8 @@
 use std::fs;
 use std::borrow::Cow;
 use std::fs::File;
-use std::time::Duration;
-use druid::widget::{Button, Flex, Image, Label, SizedBox, TextBox, ZStack};
-use druid::{Color, Env, EventCtx, ImageBuf, Point, Size, Widget, WidgetExt, WindowDesc};
+use druid::widget::{Button, Flex, Image, Label, SizedBox, Spinner, TextBox, ZStack};
+use druid::{Color, Env, EventCtx, FontDescriptor, ImageBuf, Point, Size, Widget, WidgetExt, WindowDesc};
 use druid::piet::ImageFormat;
 use druid_widget_nursery::DropdownSelect;
 use image::{DynamicImage, EncodableLayout, load_from_memory_with_format, Rgba};
@@ -17,7 +16,6 @@ use crate::handlers::Enter;
 use crate::utilities::reset_data;
 use native_dialog::{FileDialog};
 use rusttype::Font;
-use tokio;
 
 pub fn start_screening(ctx: &mut EventCtx, data: &mut GrabData) {
     // reset completely data in order to take a screenshot from scratch
@@ -316,13 +314,6 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
         ui_row
     }
 
-    #[tokio::main]
-    pub async fn timer_handling(ctx: &mut EventCtx, time: u64, data: &mut GrabData) {
-        // Sleep for time seconds
-        tokio::time::sleep(Duration::from_secs(time)).await;
-        // take the screenshot
-        start_screening(ctx,data);
-    }
 
     fn create_timer_settings() -> impl Widget<GrabData> {
 
@@ -343,7 +334,14 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
         });
 
         let start_timer_btn = button.on_click(|ctx, data: &mut GrabData, _env| {
-                timer_handling(ctx,data.delay as u64,data);
+            // Create a new window to trigger the timer request, conditioned by the timer_request flag
+            data.timer_requested = true;
+            ctx.window().close();
+            ctx.new_window(WindowDesc::new(
+                Flex::column()
+                    .with_child(Label::new("Waiting...").with_font(FontDescriptor::new(Default::default()).with_size(40.0)))
+                    .with_child(Spinner::new().fix_size(200.0,200.0)).controller(Enter)
+            ).window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)).resizable(false));
         });
 
         ui_row.add_child(start_timer_btn);

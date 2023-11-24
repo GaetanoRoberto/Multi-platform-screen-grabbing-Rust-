@@ -12,7 +12,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 image = "0.24.7"
 druid-widget-nursery = { git = "https://github.com/linebender/druid-widget-nursery" }
-tokio = { version = "1.32.0", features = ["full"] }
 imageproc = "0.23.0"
 rusttype = "0.9.3"
 arboard = "3.2.1"

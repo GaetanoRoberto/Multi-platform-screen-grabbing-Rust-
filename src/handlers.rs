@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::time::Duration;
 use druid::{AppDelegate, commands, DelegateCtx, Env, Event, EventCtx, Widget};
 use druid::widget::Controller;
 use serde_json::to_writer;
@@ -43,6 +44,7 @@ impl AppDelegate<GrabData> for Delegate {
                 text_annotation: "".to_string(),
                 text_size: data.text_size,
                 highlighter_width: data.highlighter_width,
+                timer_requested: false,
             };
             let file = File::create("settings.json").unwrap();
             to_writer(file, &json_data).unwrap();
@@ -61,6 +63,11 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
         match event {
             Event::WindowConnected => {
                 ctx.request_focus();
+                if data.timer_requested {
+                    //ctx.window().hide();
+                    ctx.request_timer(Duration::from_secs(data.delay as u64));
+                    data.timer_requested = false;
+                }
             }
             Event::KeyUp(event) => {
                 if data.hotkey.contains(&event.key.to_string()) {
@@ -102,6 +109,9 @@ impl<W: Widget<GrabData>> Controller<GrabData, W> for Enter {
                         data.hotkey_pressed = vec![];
                     }
                 }
+            }
+            Event::Timer(_) => {
+                start_screening(ctx,data);
             }
             _ => {} // Handle other cases if needed
         }

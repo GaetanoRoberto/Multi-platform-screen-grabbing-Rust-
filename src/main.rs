@@ -62,7 +62,8 @@ pub struct GrabData {
     color: (u8,u8,u8,u8),
     text_annotation: String,
     text_size : f64,
-    highlighter_width: f64
+    highlighter_width: f64,
+    timer_requested: bool
 }
 
 fn main() -> Result<(), PlatformError> {
