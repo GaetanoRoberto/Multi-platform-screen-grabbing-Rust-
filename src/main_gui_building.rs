@@ -319,7 +319,6 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
 
         let seconds_label = Label::dynamic(|data: &GrabData, _: &Env| {
             format!("Timer delay: {} seconds", data.delay.to_string())
-            //}
         });
         let slider = druid::widget::Slider::new().with_range(1.0, 20.0).with_step(1.0).lens(GrabData::delay);
         let ui_row = Flex::row().with_child(slider).with_child(seconds_label);
@@ -329,11 +328,11 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
 
     fn create_timer_button() -> impl Widget<GrabData> {
         let mut ui_row = Flex::row();
-        let button = Button::new(|data: &GrabData, _: &Env| {
-                format!("Start timer (in {} seconds)", data.delay.to_string())
-        });
 
-        let start_timer_btn = button.on_click(|ctx, data: &mut GrabData, _env| {
+        let start_timer_btn =
+            Button::new(|data: &GrabData, _: &Env| {
+                format!("Start timer (in {} seconds)", data.delay.to_string())
+            }).on_click(|ctx, data: &mut GrabData, _env| {
             // Create a new window to trigger the timer request, conditioned by the timer_request flag
             data.timer_requested = true;
             ctx.window().close();
@@ -341,7 +340,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                 Flex::column()
                     .with_child(Label::new("Waiting...").with_font(FontDescriptor::new(Default::default()).with_size(40.0)))
                     .with_child(Spinner::new().fix_size(200.0,200.0)).controller(Enter)
-            ).window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)).resizable(false));
+            ).title(APP_NAME).window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)).resizable(false));
         });
 
         ui_row.add_child(start_timer_btn);
