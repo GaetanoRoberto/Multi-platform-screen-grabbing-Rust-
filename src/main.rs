@@ -87,31 +87,5 @@ fn main() -> Result<(), PlatformError> {
         .title(APP_NAME)
         .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)).resizable(false);
 
-    let file = File::open("settings.json").unwrap();
-    let data: GrabData = from_reader(file).unwrap();
-
-    /*let data = GrabData {
-        screenshot_number: 1,
-        monitor_index: 0,
-        image_data_old: vec![],
-        image_data_new: vec![],
-        save_path: env::current_dir().expect("Failed to get current directory").into_boxed_path(),
-        save_format: "png".to_string(),
-        press: false,
-        first_screen: true,
-        scale_factor: 1.0,
-        positions: vec![],
-        hotkey: vec!["Alt".to_string(),"5".to_string()],
-        hotkey_sequence: 0,
-        set_hot_key: false,
-        delay: "".to_string(),
-        delay_length: 0,
-        input_timer_error: (false,"Invalid Input: Only Positive Number are Allowed.".to_string()),
-        trigger_ui: false,
-        annotation: Annotation::None,
-        color: (255,255,255,255),
-        text_annotation: "".to_string(),
-        text_size : 0.0
-    };*/
     AppLauncher::with_window(main_window).delegate(Delegate).launch(data)
 }

@@ -94,9 +94,6 @@ pub fn settings_window() -> impl Widget<GrabData> {
 
 }
 pub fn hotkeys_window() -> impl Widget<GrabData> {
-    let file = File::open("settings.json").unwrap();
-    let data: GrabData = from_reader(file).unwrap();
-
     let mut ui_row = Flex::column();
     let mut ui_column = Flex::row();
     ui_row.add_default_spacer();
@@ -121,7 +118,6 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                     if _data.hotkey_new.is_empty() {
                         _data.input_hotkey_error.0 = true;
                         _data.input_hotkey_error.1 = "Can't have empty hotkeys".to_string();
-                        data.set_hot_key == true;
                     }else {
                         _data.hotkey = _data.hotkey_new.clone();
                         _data.input_hotkey_error.0 = false;

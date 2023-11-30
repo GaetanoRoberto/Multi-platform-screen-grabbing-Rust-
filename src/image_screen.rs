@@ -16,10 +16,10 @@ pub struct ScreenshotWidget;
 
 impl Widget<GrabData> for ScreenshotWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut GrabData, _env: &Env) {
-        let mut min_x = 0;
-        let mut min_y = 0;
-        let mut max_x = 0;
-        let mut max_y = 0;
+        let min_x;
+        let min_y;
+        let max_x;
+        let max_y;
 
         if let Event::MouseDown(mouse_event) = event {
             if mouse_event.button.is_left() {
@@ -80,8 +80,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                 }
 
                 let mut dynamic_image = load_image(data);
-                let mut window_width= 0;
-                let mut window_height = 0;
                 let mut cropped_annotated_image = dynamic_image.clone();
                 if !data.first_screen {
 
@@ -265,9 +263,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                         },
                     }
 
-                    window_width = cropped_annotated_image.width();
-                    window_height = cropped_annotated_image.height();
-
                     if data.annotation != Annotation::Text {
                         // clear the position
                         data.positions = vec![];
@@ -284,10 +279,6 @@ impl Widget<GrabData> for ScreenshotWidget {
                     }*/
 
                     // dynamic_image = dynamic_image.resize((dynamic_image.width() as f64 * data.scale_factor) as u32, (dynamic_image.height() as f64 * data.scale_factor) as u32, FilterType::Nearest);
-
-
-                    window_width = dynamic_image.width();
-                    window_height = dynamic_image.height();
 
                     data.image_data_old = image_to_buffer(dynamic_image);
 
