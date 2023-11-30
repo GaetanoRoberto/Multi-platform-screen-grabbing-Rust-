@@ -45,6 +45,7 @@ impl AppDelegate<GrabData> for Delegate {
                 text_size: data.text_size,
                 highlighter_width: data.highlighter_width,
                 timer_requested: false,
+                image_copied: false,
             };
             let file = File::create("settings.json").unwrap();
             to_writer(file, &json_data).unwrap();

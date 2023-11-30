@@ -147,16 +147,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                 String::new()
             }
         }).with_text_color(Color::rgb(0.8, 0.0, 0.0));
-        //button to go back
-        /*let back_button = Button::new("Back").on_click(move |_ctx, _data: &mut GrabData ,_env| {
-            _data.input_hotkey_error.0 = false;
-            _ctx.window().close();
-            let main_window = WindowDesc::new(build_ui())
-                .title(APP_NAME)
-                .window_size((MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT));
-            _ctx.new_window(main_window);
 
-        });*/
         let back_button =Button::dynamic(|data: & GrabData, _env| {
             if data.set_hot_key {
                 "Reset".to_string()
@@ -257,8 +248,17 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
                 bytes: Cow::from(image.as_bytes())
             };
             clipboard.set_image(img).unwrap();
-
+            // set copied to clipboard label
+            _data.image_copied = true;
         }).fix_size(BUTTON_WIDTH * 2.0, BUTTON_HEIGHT);
+
+        let copy_confirmed = Label::dynamic(|data: &GrabData, _: &Env| {
+            if data.image_copied {
+                format!("✓")
+            } else {
+                format!(" ")
+            }
+        });
 
         let mut ui_row = Flex::row();
 
@@ -266,7 +266,7 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
         ui_row.add_default_spacer();
         ui_row.add_flex_child(cancel_button, 0.1);
         ui_row.add_default_spacer();
-        ui_row.add_flex_child(Flex::row().with_child(clipboard_button), 0.1);
+        ui_row.add_flex_child(Flex::row().with_child(clipboard_button).with_child(copy_confirmed), 0.1);
 
         ui_row
     }
@@ -541,6 +541,9 @@ pub fn hotkeys_window() -> impl Widget<GrabData> {
     }
 
 pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
+    // reset copied to clipboard label
+    data.image_copied = false;
+
     let description_label = Label::dynamic(|data: &GrabData, _env: &_| {
         match data.annotation {
             Annotation::None => {
@@ -605,6 +608,8 @@ pub fn create_edit_window(ctx: &mut EventCtx, data: &mut GrabData) {
 
 
     pub fn create_selection_window(ctx: &mut EventCtx, data: &mut GrabData) {
+        // reset copied to clipboard label
+        data.image_copied = false;
 
         let image = load_image(data);
         let rgba_image = image.to_rgba8();
